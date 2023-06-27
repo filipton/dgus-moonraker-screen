@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 rppal = "0.14.1"
+tokio = { version = "1.29.0", features = ["full"] }
