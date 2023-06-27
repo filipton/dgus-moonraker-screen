@@ -1,30 +1,19 @@
 use anyhow::Result;
 
 fn main() -> Result<()> {
-    /*
-    let serial_res = serialport::new("/dev/AMA0", 115200).open();
-    if serial_res.is_err() {
-        println!("Error opening serial port: {}", serial_res.err().unwrap());
-        println!("List of available ports:");
-
-        for port in serialport::available_ports().unwrap() {
-            println!("  {}", port.port_name);
-        }
-
+    let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
+    if let Err(e) = serial {
+        println!("Error: {}", e);
         return Ok(());
     }
 
-    let mut serial = serial_res?;
+    let mut serial = serial?;
 
-    // read from serial continuously
-    let mut buffer = vec![0; 100000];
+    let mut buffer = vec![0; 100];
     loop {
-        serial.read(buffer.as_mut_slice())?;
-        println!("{:#?}", buffer);
-
-        buffer.clear();
+        let len = serial.read(&mut buffer)?;
+        if len > 0 {
+            println!("Read {} bytes: {:#?}", len, &buffer[..len],);
+        }
     }
-    */
-
-    Ok(())
 }
