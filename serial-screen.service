@@ -1,0 +1,12 @@
+[Unit]
+Description=Serial Display
+AssertPathIsDirectory=/opt/serial-screen
+
+[Service]
+Type=simple
+ExecStart=/opt/serial-screen/serial-screen
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
