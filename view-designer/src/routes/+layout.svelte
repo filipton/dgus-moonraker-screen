@@ -54,6 +54,7 @@
             return;
         }
 
+        loaded = false;
         for (let module of allModules) {
             currentModule = module;
 
@@ -61,12 +62,12 @@
                 await new Promise((resolve) => setTimeout(resolve, 10));
             }
 
-            let canvas = await html2canvas(screen, {
-                useCORS: true,
-            });
-
             const a = document.createElement("a");
-            a.href = CanvasToBMP.toDataURL(canvas);
+            a.href = Bitmap.fromPixelData(
+                (await domtoimage.toPixelData(screen)).buffer,
+                screenWidth,
+                screenHeight
+            );
             a.download = currentModule.name + ".bmp";
             a.click();
             await next();
@@ -110,13 +111,12 @@
             return;
         }
 
-        console.log(await domtoimage.toPixelData(screen));
-
-        const canvas = await html2canvas(screen, {
-            useCORS: true,
-        });
         const a = document.createElement("a");
-        a.href = Bitmap.fromCanvas(canvas);
+        a.href = Bitmap.fromPixelData(
+            (await domtoimage.toPixelData(screen)).buffer,
+            screenWidth,
+            screenHeight
+        );
         a.download = currentModule.name + ".bmp";
         a.click();
     }
