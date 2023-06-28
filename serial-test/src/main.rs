@@ -8,7 +8,9 @@ fn main() -> Result<()> {
     }
 
     let mut serial = serial?;
-    serial.write(&construct_send_i16(0x2000, 69))?;
+    //serial.write(&construct_send_to_register(0x03, 0x0001))?;
+    serial.write(&construct_change_page(0x0001))?;
+    //serial.write(&vec![0x5A, 0xA5, 0x04, 0x83, 0x00, 0x84])?;
 
     let mut buffer = vec![0; 100];
     loop {
@@ -32,10 +34,25 @@ fn main() -> Result<()> {
                 }
             }
         }
-
     }
 
     //Ok(())
+}
+
+fn construct_change_page(page_number: i16) -> Vec<u8> {
+    let mut send_buff = vec![
+        0x5A, // Header
+        0xA5, // Header
+        0x07, // Length (4 (page number) + 3 (address and command))
+        0x82, // Write
+        0x00, // Address Page Reg
+        0x84, // Address Page Reg
+        0x5A, // Data Header
+        0x01, // Data Header
+    ];
+    send_buff.extend_from_slice(&page_number.to_be_bytes());
+
+    send_buff
 }
 
 fn construct_send_i16(address: i16, value: i16) -> Vec<u8> {

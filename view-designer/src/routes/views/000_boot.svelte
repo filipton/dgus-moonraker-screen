@@ -1,3 +1,7 @@
+<script lang="ts">
+    export let preview: boolean;
+</script>
+
 <img
     src="https://odr.filipton.space/favicon.png"
     class="h-2/3 mx-auto"

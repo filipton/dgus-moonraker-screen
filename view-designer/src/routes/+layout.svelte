@@ -6,6 +6,7 @@
     const screenWidth = 480;
     const screenHeight = 272;
     let screen: HTMLDivElement;
+    let preview: boolean = true;
 
     const modules = import.meta.glob("./views/**.svelte");
     let allModules: View[] = [];
@@ -29,6 +30,11 @@
     currentModule = allModules[0];
 
     async function saveAll() {
+        if (preview) {
+            alert("Please disable preview mode!");
+            return;
+        }
+
         for (let module of allModules) {
             currentModule = module;
 
@@ -71,6 +77,11 @@
     }
 
     async function save() {
+        if (preview) {
+            alert("Please disable preview mode!");
+            return;
+        }
+
         if (!loaded) {
             alert("Please wait for the module to load!");
             return;
@@ -183,7 +194,7 @@
             {#await import(currentModule.path)}
                 <p>loading...</p>
             {:then module}
-                <svelte:component this={module.default} />
+                <svelte:component this={module.default} {preview} />
 
                 {#await load()}{/await}
             {:catch}
@@ -196,6 +207,10 @@
 <div class="flex justify-center mt-2">
     <button class="px-4 py-2 bg-gray-400 mx-1" on:click={prev}>Prev</button>
     <button class="px-4 py-2 bg-gray-400 mx-1" on:click={save}>Save</button>
+    <button
+        class="px-4 py-2 mx-1 {preview ? 'bg-gray-600' : 'bg-gray-400'}"
+        on:click={() => (preview = !preview)}>Toggle preview</button
+    >
     <button class="px-4 py-2 bg-gray-400 mx-1" on:click={saveAll}
         >Save all</button
     >
