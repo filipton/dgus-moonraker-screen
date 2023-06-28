@@ -24,11 +24,12 @@
         ETA: 00:00
     </a>
 
-    <button
+    <a
         class="bg-red-600 h-full text-white font-bold text-2xl px-8 rounded-br-lg"
         data-btn="3001"
         title="BTN 2"
+        href="?mod=3"
     >
         ESTOP
-    </button>
+    </a>
 </div>

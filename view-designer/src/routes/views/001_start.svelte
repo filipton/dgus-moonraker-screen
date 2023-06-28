@@ -18,7 +18,7 @@
         <div class="flex w-full h-1/2 justify-evenly my-auto">
             <a
                 class="aspect-square h-full menu_button"
-                href="?mod=3"
+                href="?mod=4"
                 title="BTN 3"
             >
                 <svg
@@ -38,7 +38,7 @@
             </a>
             <a
                 class="aspect-square h-full menu_button"
-                href="?mod=4"
+                href="?mod=5"
                 title="BTN 4"
             >
                 <svg
@@ -54,7 +54,7 @@
             </a>
             <a
                 class="aspect-square h-full menu_button"
-                href="?mod=5"
+                href="?mod=6"
                 title="BTN 5"
             >
                 <svg
