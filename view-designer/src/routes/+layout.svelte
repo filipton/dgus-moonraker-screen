@@ -1,11 +1,10 @@
 <script lang="ts">
     import "../app.css";
-    import html2canvas from "html2canvas";
     import domtoimage from "dom-to-image";
 
     import type { View } from "../lib/types";
     import { dev } from "$app/environment";
-    import { page } from "$app/stores";
+    import { navigating, page } from "$app/stores";
     import { goto } from "$app/navigation";
     import { Bitmap } from "$lib/Bitmap";
 
@@ -47,6 +46,16 @@
             currentModule = allModules[allModules.length - 1];
         }
     }
+
+    navigating.subscribe((navigating) => {
+        currentModuleNumber = parseInt(
+            navigating?.to?.url.searchParams.get("mod") || "-1"
+        );
+        let found = allModules.find((x) => x.id == currentModuleNumber);
+        if (found) {
+            currentModule = found;
+        }
+    });
 
     async function saveAll() {
         if (preview) {
