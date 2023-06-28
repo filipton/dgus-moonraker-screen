@@ -30,6 +30,7 @@ async fn connect_to_serial() -> Result<()> {
 
     let mut serial = serial?;
     check_boot_state(&mut serial).await?;
+    serial.write(&vec![0x5A, 0xA5, 0x04, 0x83, 0x00, 0x84, 0x01])?;
 
     let mut last_ack = Instant::now();
     let mut ack_sent = false;
@@ -41,17 +42,18 @@ async fn connect_to_serial() -> Result<()> {
             ack_sent = true;
         } else if last_ack.elapsed().as_millis() > TIMEOUT_CHECK_INTERVAL + TIMEOUT_THRESHOLD {
             println!("Connection to screen lost.");
-            return Ok(());
+            return Err(anyhow::anyhow!("Connection to screen lost."));
         }
 
         let len = serial.read(&mut buffer)?;
+
         if len > 0 {
+            println!("Read {} bytes: {:#?}", len, &buffer[..len],);
+
             if buffer[3] == 0x82 {
                 last_ack = Instant::now();
                 ack_sent = false;
             } else if buffer[3] == 0x83 {
-                //println!("Read {} bytes: {:#?}", len, &buffer[..len],);
-
                 // read incoming data
                 let address = u16::from_be_bytes([buffer[4], buffer[5]]);
                 let data_length = buffer[2] - 4;
@@ -65,6 +67,8 @@ async fn connect_to_serial() -> Result<()> {
                 }
             }
         }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     }
 
     //Ok(())
@@ -77,6 +81,7 @@ async fn check_boot_state(serial: &mut Uart) -> Result<()> {
     let mut buffer = vec![0; 1024];
     loop {
         if now.elapsed().as_millis() > BOOT_TIMEOUT {
+            _ = serial.write(&construct_change_page(0));
             return Err(anyhow::anyhow!("Connection Timeout"));
         }
 
@@ -87,5 +92,7 @@ async fn check_boot_state(serial: &mut Uart) -> Result<()> {
                 return Ok(());
             }
         }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     }
 }
