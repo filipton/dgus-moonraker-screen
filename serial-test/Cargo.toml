@@ -9,3 +9,9 @@ edition = "2021"
 anyhow = "1.0.71"
 rppal = "0.14.1"
 tokio = { version = "1.29.0", features = ["full"] }
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
