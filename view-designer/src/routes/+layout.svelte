@@ -2,6 +2,7 @@
     import "../app.css";
     import html2canvas from "html2canvas";
     import type { View } from "../lib/types";
+    import { dev } from "$app/environment";
 
     const screenWidth = 480;
     const screenHeight = 272;
@@ -11,6 +12,7 @@
     const modules = import.meta.glob("./views/**.svelte");
     let allModules: View[] = [];
     let currentModule: View;
+    let currentModuleNumber: number = 0;
 
     let loaded = false;
 
@@ -64,6 +66,7 @@
         let currentIdx = allModules.findIndex((x) => x == currentModule);
         if (currentIdx > 0) {
             currentModule = allModules[currentIdx - 1];
+            currentModuleNumber = currentModule.id;
         }
     }
 
@@ -73,6 +76,7 @@
         let currentIdx = allModules.findIndex((x) => x == currentModule);
         if (currentIdx < allModules.length - 1) {
             currentModule = allModules[currentIdx + 1];
+            currentModuleNumber = currentModule.id;
         }
     }
 
@@ -177,6 +181,7 @@
     };
 </script>
 
+{#if dev}
 <div class="flex justify-center mt-8 flex-col items-center">
     <h1 class="text-center text-4xl font-bold text-black my-auto">
         Current: {currentModule.name}
@@ -216,3 +221,8 @@
     >
     <button class="px-4 py-2 bg-gray-400 mx-1" on:click={next}>Next</button>
 </div>
+{:else}
+    <h1 class="text-4xl text-red-800 text-center font-bold">
+        This page is only available in development mode!
+    </h1>
+{/if}
