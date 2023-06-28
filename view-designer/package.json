@@ -23,6 +23,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"dom-to-image": "^2.6.0",
 		"html2canvas": "^1.4.1"
 	}
 }
