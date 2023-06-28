@@ -1,0 +1,10 @@
+[INIT]
+PICFIX=1
+VARCount=64
+Version=-1
+ProVersion=645
+SCREENDSIZE=480X272
+SPADDRESS=5000
+[IMG]
+000=000_boot.bmp
+001=001_start.bmp
