@@ -8,3 +8,4 @@ SPADDRESS=5000
 [IMG]
 000=000_boot.bmp
 001=001_start.bmp
+002=002_printing_progress.bmp

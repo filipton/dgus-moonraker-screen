@@ -1,7 +1,10 @@
+use std::time::SystemTime;
+
 use anyhow::Result;
+use chrono::{DateTime, Local, Timelike};
 use rppal::uart::Uart;
 use tokio::time::Instant;
-use utils::{construct_change_page, construct_get_page};
+use utils::{construct_change_page, construct_get_page, construct_text};
 
 mod utils;
 
@@ -26,6 +29,23 @@ async fn connect_to_serial() -> Result<()> {
     if let Err(e) = serial {
         return Err(anyhow::anyhow!("Error: {}", e));
     }
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+
+    tokio::spawn(async move {
+        let mut now = Local::now();
+        _ = tx
+            .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
+            .await;
+
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(60 - now.second() as u64)).await;
+            now = Local::now();
+
+            _ = tx
+                .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
+                .await;
+        }
+    });
 
     let mut serial = serial?;
     check_boot_state(&mut serial).await?;
@@ -79,6 +99,10 @@ async fn connect_to_serial() -> Result<()> {
         }
 
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        if let Ok(data) = rx.try_recv() {
+            serial.write(&data)?;
+        }
     }
 
     //Ok(())
