@@ -5,6 +5,10 @@ pub fn construct_change_page(page_number: u16) -> Vec<u8> {
     construct_write_buf(0x0084, &page_number_buffer)
 }
 
+pub fn construct_get_page() -> Vec<u8> {
+    construct_read_buf(0x0014, 1)
+}
+
 pub fn construct_i16(address: u16, value: i16) -> Vec<u8> {
     construct_write_buf(address, &value.to_be_bytes())
 }
@@ -24,6 +28,19 @@ pub fn construct_write_buf(address: u16, buffer: &[u8]) -> Vec<u8> {
     ];
     send_buff.extend_from_slice(&address.to_be_bytes());
     send_buff.extend_from_slice(buffer);
+
+    send_buff
+}
+
+pub fn construct_read_buf(address: u16, length: u8) -> Vec<u8> {
+    let mut send_buff = vec![
+        0x5A, // Header
+        0xA5, // Header
+        0x04, // Length
+        0x83, // Read
+    ];
+    send_buff.extend_from_slice(&address.to_be_bytes());
+    send_buff.push(length);
 
     send_buff
 }

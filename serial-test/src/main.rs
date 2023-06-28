@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rppal::uart::Uart;
 use tokio::time::Instant;
-use utils::{construct_change_page, construct_i16};
+use utils::{construct_change_page, construct_get_page};
 
 mod utils;
 
@@ -24,13 +24,11 @@ async fn main() -> Result<()> {
 async fn connect_to_serial() -> Result<()> {
     let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
     if let Err(e) = serial {
-        println!("Error: {}", e);
-        return Ok(());
+        return Err(anyhow::anyhow!("Error: {}", e));
     }
 
     let mut serial = serial?;
     check_boot_state(&mut serial).await?;
-    serial.write(&vec![0x5A, 0xA5, 0x04, 0x83, 0x00, 0x84, 0x01])?;
 
     let mut last_ack = Instant::now();
     let mut ack_sent = false;
@@ -38,7 +36,7 @@ async fn connect_to_serial() -> Result<()> {
     let mut buffer = vec![0; 1024];
     loop {
         if last_ack.elapsed().as_millis() > TIMEOUT_CHECK_INTERVAL && !ack_sent {
-            serial.write(&construct_i16(0xFFEE, 69))?;
+            serial.write(&construct_get_page())?;
             ack_sent = true;
         } else if last_ack.elapsed().as_millis() > TIMEOUT_CHECK_INTERVAL + TIMEOUT_THRESHOLD {
             println!("Connection to screen lost.");
@@ -48,22 +46,34 @@ async fn connect_to_serial() -> Result<()> {
         let len = serial.read(&mut buffer)?;
 
         if len > 0 {
-            println!("Read {} bytes: {:#?}", len, &buffer[..len],);
+            //println!("Read {} bytes: {:#?}", len, &buffer[..len],);
 
             if buffer[3] == 0x82 {
-                last_ack = Instant::now();
-                ack_sent = false;
+                //ACK when writing
             } else if buffer[3] == 0x83 {
-                // read incoming data
                 let address = u16::from_be_bytes([buffer[4], buffer[5]]);
-                let data_length = buffer[2] - 4;
+                let data_length = buffer[6] * 2; // word = 2 bytes
 
-                if data_length == 2 {
-                    let value = u16::from_be_bytes([buffer[7], buffer[8]]);
-                    println!("Address: {:#X} Value: {}", address, value);
-                } else {
-                    let value = std::str::from_utf8(&buffer[7..(7 + data_length as usize)])?;
-                    println!("Address: {:#X} Value: {}", address, value);
+                match address {
+                    0x14 => {
+                        last_ack = Instant::now();
+                        ack_sent = false;
+
+                        let page_number = u16::from_be_bytes([buffer[7], buffer[8]]);
+                        if page_number == 0 {
+                            serial.write(&construct_change_page(1))?;
+                        }
+                    }
+                    _ => {
+                        if data_length > 2 {
+                            let value =
+                                std::str::from_utf8(&buffer[7..(7 + data_length as usize)])?;
+                            println!("Address: {:#X} Value: {}", address, value);
+                        } else {
+                            let value = u16::from_be_bytes([buffer[7], buffer[8]]);
+                            println!("Address: {:#X} Value: {}", address, value);
+                        }
+                    }
                 }
             }
         }
