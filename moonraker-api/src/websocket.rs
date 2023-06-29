@@ -70,12 +70,14 @@ async fn ws_connection(
                 if let Ok(msg) = msg {
                     tx.send(msg).unwrap();
                 } else {
+                    /*
                     if json.contains("notify_proc_stat_update") {
                         continue;
                     }
+                    */
 
-                    println!("DBG: {}", msg.err().unwrap());
-                    println!("DBG: Received: {}", json);
+                    //println!("DBG: {}", msg.err().unwrap());
+                    //println!("DBG: Received: {}", json);
                 }
             }
         }

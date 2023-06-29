@@ -2,18 +2,15 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use moonraker_api::{websocket, MoonrakerMsg};
-use serde_json::Value;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let (tx, mut rx) = websocket::connect("192.168.1.18:7125").await?;
 
-    /*
     tx.send(MoonrakerMsg::new(
         moonraker_api::methods::MoonrakerMethod::EmergencyStop,
         None,
     ))?;
-    */
 
     let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
     objects.insert("display_status".to_string(), None);
@@ -30,9 +27,7 @@ async fn main() -> Result<()> {
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         if let Some(msg) = rx.recv().await {
-            println!("DBG2: Received: {:?}", msg);
+            println!("DBG2: Received: {:#?}", msg);
         }
     }
-
-    Ok(())
 }
