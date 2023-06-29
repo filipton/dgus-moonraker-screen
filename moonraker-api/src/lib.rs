@@ -4,6 +4,10 @@ pub mod methods;
 pub mod params;
 pub mod websocket;
 
+pub use methods::{get_method_id, MoonrakerMethod};
+pub use params::MoonrakerParam;
+pub use websocket::connect;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MoonrakerMsg {
@@ -15,27 +19,27 @@ pub enum MoonrakerMsg {
 
     MsgMethodParam {
         jsonrpc: String,
-        method: methods::MoonrakerMethod,
-        params: params::MoonrakerParam,
+        method: MoonrakerMethod,
+        params: MoonrakerParam,
     },
 
     MsgMethodParamVec {
         jsonrpc: String,
-        method: methods::MoonrakerMethod,
-        params: Vec<params::MoonrakerParam>,
+        method: MoonrakerMethod,
+        params: Vec<MoonrakerParam>,
     },
 
     MsgMethodParamID {
         jsonrpc: String,
-        method: methods::MoonrakerMethod,
-        params: params::MoonrakerParam,
+        method: MoonrakerMethod,
+        params: MoonrakerParam,
         id: u16,
     },
 
     MsgMethodParamIDVec {
         jsonrpc: String,
-        method: methods::MoonrakerMethod,
-        params: Vec<params::MoonrakerParam>,
+        method: MoonrakerMethod,
+        params: Vec<MoonrakerParam>,
         id: u16,
     },
 }

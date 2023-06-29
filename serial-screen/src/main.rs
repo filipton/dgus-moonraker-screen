@@ -4,11 +4,9 @@ use rppal::uart::Uart;
 use structs::{FileMetadataRoot, PrinterStatsRoot};
 use tokio::time::Instant;
 use utils::{construct_change_page, construct_get_page, construct_i16, construct_text};
-use websocket::websocket_connection_loop;
 
 mod structs;
 mod utils;
-mod websocket;
 
 const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
@@ -19,7 +17,7 @@ pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    websocket_connection_loop().await?;
+    let (tx, mut rx) = moonraker_api::connect(MOONRAKER_API_URL).await?;
 
     loop {
         let res = connect_to_serial().await;
@@ -50,6 +48,7 @@ async fn connect_to_serial() -> Result<()> {
                 .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
                 .await;
 
+            /*
             let printer_stats = client.get(format!("http://{}/printer/objects/query?heater_bed=target,temperature&extruder=target,temperature&display_status&print_stats", MOONRAKER_API_URL))
                 .send().await;
 
@@ -135,6 +134,7 @@ async fn connect_to_serial() -> Result<()> {
                     }
                 }
             }
+        */
 
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         }

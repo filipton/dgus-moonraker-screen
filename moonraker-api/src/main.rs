@@ -7,7 +7,6 @@ use moonraker_api::{methods::MoonrakerMethod, params::MoonrakerParam, websocket,
 async fn main() -> Result<()> {
     let (tx, mut rx) = websocket::connect("192.168.1.18:7125").await?;
 
-    /*
     let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
     objects.insert("display_status".to_string(), None);
     objects.insert("print_stats".to_string(), None);
@@ -20,18 +19,19 @@ async fn main() -> Result<()> {
         Some(vec!["target".into(), "temperature".into()]),
     );
 
-    tx.send(MoonrakerMsg::new(
+    tx.send(MoonrakerMsg::new_param_id(
         moonraker_api::methods::MoonrakerMethod::PrinterObjectsSubscribe,
-        Some(moonraker_api::params::MoonrakerParam::PrinterObjectsSubscribe { objects }),
+        moonraker_api::params::MoonrakerParam::PrinterObjectsSubscribe { objects },
     ))?;
-    */
 
+    /*
     tx.send(MoonrakerMsg::new_param_id(
         MoonrakerMethod::FilesMetadata,
         MoonrakerParam::FilesMetadata {
             filename: "bcut-stk.gcode".to_string(),
         },
     ))?;
+    */
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;

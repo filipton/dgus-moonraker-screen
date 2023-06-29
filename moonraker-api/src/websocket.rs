@@ -51,6 +51,7 @@ async fn ws_connection(
     rx: &mut MoonrakerMsgRx,
 ) -> Result<()> {
     let mut ws = connect_to_ws(moonraker_api_url).await?;
+    println!("DBG: Connected to moonraker websocket");
 
     loop {
         tokio::select! {
