@@ -1,7 +1,9 @@
 // TODO: optimize
 pub fn center_pad(s: &str, pad_char: char, width: usize) -> String {
-    let l = width / 2;
-    let r = width - l;
+    let l = (width - s.len()) / 2;
+    let r = width - s.len() - l;
+
+    println!("{} {} {}", l, s.len(), r);
 
     format!(
         "{}{}{}",

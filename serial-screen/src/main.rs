@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use chrono::{DateTime, Local, Timelike};
+use chrono::Local;
 use moonraker_api::MoonrakerMsg;
 use rppal::uart::Uart;
-use serial_utils::{construct_change_page, construct_get_page, construct_i16, construct_text};
+use serial_utils::construct_change_page;
 use structs::{PrinterStateResult, ScreenState};
 use tokio::{
     sync::{
