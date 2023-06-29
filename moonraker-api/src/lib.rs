@@ -5,45 +5,58 @@ pub mod params;
 pub mod websocket;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MoonrakerApiRequest {
-    jsonrpc: String,
-    method: methods::MoonrakerMethod,
+#[serde(untagged)]
+pub enum MoonrakerMsg {
+    MsgResult {
+        jsonrpc: String,
+        result: serde_json::Value,
+        id: u16,
+    },
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    params: Option<params::MoonrakerParam>,
+    MsgMethodParam {
+        jsonrpc: String,
+        method: methods::MoonrakerMethod,
+        params: params::MoonrakerParam,
+    },
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<u16>,
-}
+    MsgMethodParamVec {
+        jsonrpc: String,
+        method: methods::MoonrakerMethod,
+        params: Vec<params::MoonrakerParam>,
+    },
 
-#[derive(Debug, Clone)]
-pub struct MoonrakerMsg {
-    pub method: methods::MoonrakerMethod,
-    pub params: Option<params::MoonrakerParam>,
+    MsgMethodParamID {
+        jsonrpc: String,
+        method: methods::MoonrakerMethod,
+        params: params::MoonrakerParam,
+        id: u16,
+    },
+
+    MsgMethodParamIDVec {
+        jsonrpc: String,
+        method: methods::MoonrakerMethod,
+        params: Vec<params::MoonrakerParam>,
+        id: u16,
+    },
 }
 
 impl MoonrakerMsg {
-    pub fn new(method: methods::MoonrakerMethod, params: Option<params::MoonrakerParam>) -> Self {
-        Self { method, params }
-    }
-
     pub fn to_json(&self) -> String {
-        let id = methods::get_method_id(&self.method);
-        let request = MoonrakerApiRequest {
-            jsonrpc: "2.0".to_string(),
-            method: self.method.clone(),
-            params: self.params.clone(),
-            id: Some(id),
-        };
-
-        serde_json::to_string(&request).unwrap()
+        serde_json::to_string(&self).unwrap()
     }
 
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
-        let request: MoonrakerApiRequest = serde_json::from_str(json)?;
-        let method = request.method;
-        let params = request.params;
+        serde_json::from_str(json)
+    }
 
-        Ok(Self { method, params })
+    pub fn new_param_id(method: methods::MoonrakerMethod, params: params::MoonrakerParam) -> Self {
+        let id = methods::get_method_id(&method);
+
+        MoonrakerMsg::MsgMethodParamID {
+            jsonrpc: "2.0".to_string(),
+            method,
+            params,
+            id,
+        }
     }
 }

@@ -6,11 +6,12 @@ use serde_json::Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MoonrakerParam {
+    None,
     PrinterObjectsSubscribe {
         objects: HashMap<String, Option<Vec<String>>>,
     },
 
-    NotifyProcStatUpdate(Vec<NotifyProcStatUpdateRes>),
+    NotifyProcStatUpdate(NotifyProcStatUpdateRes),
     NotifyStatusUpdate(HashMap<String, HashMap<String, Value>>, f64),
     FilesMetadata {
         filename: String,

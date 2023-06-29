@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use moonraker_api::{methods::MoonrakerMethod, websocket, MoonrakerMsg};
+use moonraker_api::{methods::MoonrakerMethod, params::MoonrakerParam, websocket, MoonrakerMsg};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,11 +26,11 @@ async fn main() -> Result<()> {
     ))?;
     */
 
-    tx.send(MoonrakerMsg::new(
-        moonraker_api::methods::MoonrakerMethod::FilesMetadata,
-        Some(moonraker_api::params::MoonrakerParam::FilesMetadata {
-            filename: "bcut-stk.gcode".into(),
-        }),
+    tx.send(MoonrakerMsg::new_param_id(
+        MoonrakerMethod::FilesMetadata,
+        MoonrakerParam::FilesMetadata {
+            filename: "bcut-stk.gcode".to_string(),
+        },
     ))?;
 
     loop {
