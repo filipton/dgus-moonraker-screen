@@ -48,6 +48,10 @@
             class="w-5/6 h-6 bg-gray-200 rounded-full dark:bg-gray-700"
             title="DATA 2029/1"
         >
+            {#if preview}
+                <div class="absolute w-[400px] text-center">45%</div>
+            {/if}
+
             <div
                 class="h-6 bg-blue-600 rounded-full dark:bg-blue-500"
                 style="width: {preview ? '45' : '0'}%"
