@@ -1,7 +1,7 @@
-use anyhow::Result;
-use serde_json::Value;
-use serde::{Deserialize, Serialize};
 use crate::serial_utils::{construct_i16, construct_text};
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 // TODO: maybe use a macro for this?
 //       macro should be like serde renaming etc
@@ -62,48 +62,68 @@ impl ScreenState {
         old: &mut Self,
         serial_tx: &tokio::sync::mpsc::Sender<Vec<u8>>,
     ) -> Result<()> {
-        if self.time != old.time {
-            let _ = serial_tx.send(construct_text(0x2000, &self.time)).await;
-        }
+        // always send time because it's like ping
+        let _ = serial_tx.send(construct_text(0x2000, &self.time)).await;
 
         if self.estimated_time != old.estimated_time {
+            println!("chg: estimated_time: {}", self.estimated_time);
             let _ = serial_tx
                 .send(construct_text(0x2005, &self.estimated_time))
                 .await;
+
+            old.estimated_time = self.estimated_time.clone();
         }
 
         if self.model_name != old.model_name {
+            println!("chg: model_name: {}", self.model_name);
             let _ = serial_tx
                 .send(construct_text(0x2015, &self.model_name))
                 .await;
+
+            old.model_name = self.model_name.clone();
         }
 
         if self.nozzle_temp != old.nozzle_temp {
+            println!("chg: nozzle_temp: {}", self.nozzle_temp);
             let _ = serial_tx
                 .send(construct_i16(0x2025, self.nozzle_temp))
                 .await;
+
+            old.nozzle_temp = self.nozzle_temp;
         }
 
         if self.target_nozzle_temp != old.target_nozzle_temp {
+            println!("chg: target_nozzle_temp: {}", self.target_nozzle_temp);
             let _ = serial_tx
                 .send(construct_i16(0x2026, self.target_nozzle_temp))
                 .await;
+
+            old.target_nozzle_temp = self.target_nozzle_temp;
         }
 
         if self.bed_temp != old.bed_temp {
+            println!("chg: bed_temp: {}", self.bed_temp);
             let _ = serial_tx.send(construct_i16(0x2027, self.bed_temp)).await;
+
+            old.bed_temp = self.bed_temp;
         }
 
         if self.target_bed_temp != old.target_bed_temp {
+            println!("chg: target_bed_temp: {}", self.target_bed_temp);
             let _ = serial_tx
                 .send(construct_i16(0x2028, self.target_bed_temp))
                 .await;
+
+            old.target_bed_temp = self.target_bed_temp;
         }
 
         if self.printing_progress != old.printing_progress {
+            println!("chg: printing_progress: {}", self.printing_progress);
             let _ = serial_tx
                 .send(construct_i16(0x2029, self.printing_progress))
                 .await;
+
+            old.printing_progress = self.printing_progress;
         }
 
         Ok(())
@@ -169,7 +189,7 @@ pub struct PrintStats {
 #[serde(rename_all = "camelCase")]
 pub struct Info {
     #[serde(rename = "total_layer")]
-    pub total_layer: i64,
+    pub total_layer: Option<i64>,
     #[serde(rename = "current_layer")]
-    pub current_layer: i64,
+    pub current_layer: Option<i64>,
 }

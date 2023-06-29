@@ -16,6 +16,7 @@ use tokio::{
 
 mod serial_utils;
 mod structs;
+mod utils;
 
 const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
@@ -26,7 +27,8 @@ pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (tx, mut rx) = moonraker_api::connect(MOONRAKER_API_URL).await?;
+    let screen_state = Arc::new(RwLock::new(ScreenState::new()));
+    let (tx, rx) = moonraker_api::connect(MOONRAKER_API_URL).await?;
     let rx = Arc::new(Mutex::new(rx));
 
     let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
@@ -48,7 +50,7 @@ async fn main() -> Result<()> {
     ))?;
 
     loop {
-        let res = connect_to_serial(&tx, rx.clone()).await;
+        let res = connect_to_serial(screen_state.clone(), &tx, rx.clone()).await;
         if let Err(_) = res {
             // retry after 5 seconds
             tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_TIMEOUT)).await;
@@ -57,7 +59,8 @@ async fn main() -> Result<()> {
 }
 
 async fn connect_to_serial(
-    moonraker_tx: &UnboundedSender<MoonrakerMsg>,
+    screen_state: Arc<RwLock<ScreenState>>,
+    _moonraker_tx: &UnboundedSender<MoonrakerMsg>,
     moonraker_rx: Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>,
 ) -> Result<()> {
     let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
@@ -65,7 +68,6 @@ async fn connect_to_serial(
         return Err(anyhow::anyhow!("Error: {}", e));
     }
 
-    let screen_state = Arc::new(RwLock::new(ScreenState::new()));
     let mut old_screen_state = ScreenState::new_old();
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
 
@@ -120,6 +122,15 @@ async fn connect_to_serial(
                                     }
                                 }
 
+                                if let Some(print_stats) = data.get("print_stats") {
+                                    if let Some(filename) = print_stats.get("filename") {
+                                        let model_name = filename.as_str().unwrap_or("");
+
+                                        screen_state.model_name =
+                                            utils::center_pad(model_name, ' ', 20);
+                                    }
+                                }
+
                                 //println!("Got status update: {:?}", data);
                             }
                         }
@@ -155,6 +166,10 @@ async fn connect_to_serial(
                             screen_state.target_bed_temp =
                                 result.status.heater_bed.target.round() as i16;
 
+                            let model_name = result.status.print_stats.filename;
+                            screen_state.model_name = utils::center_pad(&model_name, ' ', 20);
+                            println!("{:?}, {:?}", model_name, screen_state.model_name);
+
                             //println!("Got result ({}): {:?}", id, result);
                         }
                     } else {
@@ -172,46 +187,6 @@ async fn connect_to_serial(
             }
 
             /*
-                let printer_stats = client.get(format!("http://{}/printer/objects/query?heater_bed=target,temperature&extruder=target,temperature&display_status&print_stats", MOONRAKER_API_URL))
-                    .send().await;
-
-                if let Ok(printer_stats) = printer_stats {
-                    if let Ok(printer_stats) = printer_stats.json::<PrinterStatsRoot>().await {
-                        _ = tx
-                            .send(construct_i16(
-                                0x2025,
-                                printer_stats.result.status.extruder.temperature.round() as i16,
-                            ))
-                            .await;
-
-                        _ = tx
-                            .send(construct_i16(
-                                0x2026,
-                                printer_stats.result.status.extruder.target as i16,
-                            ))
-                            .await;
-
-                        _ = tx
-                            .send(construct_i16(
-                                0x2027,
-                                printer_stats.result.status.heater_bed.temperature.round() as i16,
-                            ))
-                            .await;
-
-                        _ = tx
-                            .send(construct_i16(
-                                0x2028,
-                                printer_stats.result.status.heater_bed.target as i16,
-                            ))
-                            .await;
-
-                        _ = tx
-                            .send(construct_i16(
-                                0x2029,
-                                (printer_stats.result.status.display_status.progress * 100.0) as i16,
-                            ))
-                            .await;
-
                         let mut model_name = printer_stats.result.status.print_stats.filename.clone();
                         if model_name.len() > 20 {
                             model_name = model_name[..20].to_string();

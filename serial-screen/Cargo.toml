@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 chrono = "0.4.26"
-#reqwest = { version = "0.11.18", default-features = false, features = ["json"] }
+reqwest = { version = "0.11.18", default-features = false, features = ["json"] }
 moonraker-api = { path = "../moonraker-api" }
 rppal = "0.14.1"
 serde = { version = "1.0.164", features = ["derive"] }
