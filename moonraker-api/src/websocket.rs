@@ -24,14 +24,16 @@ where
 type MoonrakerMsgRx = tokio::sync::mpsc::UnboundedReceiver<MoonrakerMsg>;
 type MoonrakerMsgTx = tokio::sync::mpsc::UnboundedSender<MoonrakerMsg>;
 
-pub async fn connect(moonraker_api_url: &str) -> Result<MoonrakerMsgTx> {
+pub async fn connect(moonraker_api_url: &str) -> Result<(MoonrakerMsgTx, MoonrakerMsgRx)> {
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<MoonrakerMsg>();
+    let (out_tx, out_rx) = tokio::sync::mpsc::unbounded_channel::<MoonrakerMsg>();
+
     let moonraker_api_url = moonraker_api_url.to_string();
 
     tokio::spawn(async move {
         loop {
             println!("DBG: Attempting to connect to moonraker websocket...");
-            let res = ws_connection(&moonraker_api_url, &mut rx).await;
+            let res = ws_connection(&moonraker_api_url, &out_tx, &mut rx).await;
             if let Err(e) = res {
                 println!("DBG Error: {}", e);
             }
@@ -41,10 +43,14 @@ pub async fn connect(moonraker_api_url: &str) -> Result<MoonrakerMsgTx> {
         }
     });
 
-    Ok(tx)
+    Ok((tx, out_rx))
 }
 
-async fn ws_connection(moonraker_api_url: &str, rx: &mut MoonrakerMsgRx) -> Result<()> {
+async fn ws_connection(
+    moonraker_api_url: &str,
+    tx: &MoonrakerMsgTx,
+    rx: &mut MoonrakerMsgRx,
+) -> Result<()> {
     let mut ws = connect_to_ws(moonraker_api_url).await?;
 
     loop {
@@ -57,7 +63,20 @@ async fn ws_connection(moonraker_api_url: &str, rx: &mut MoonrakerMsgRx) -> Resu
                 ws.write_frame(Frame::text(payload.into())).await.unwrap();
             }
             Ok(msg) = ws.read_frame() => {
-                println!("DBG: Received: {:?}", msg.payload);
+                let payload = msg.payload;
+                let json = std::str::from_utf8(&payload).unwrap();
+
+                let msg = MoonrakerMsg::from_json(json);
+                if let Ok(msg) = msg {
+                    tx.send(msg).unwrap();
+                } else {
+                    if json.contains("notify_proc_stat_update") {
+                        continue;
+                    }
+
+                    println!("DBG: {}", msg.err().unwrap());
+                    println!("DBG: Received: {}", json);
+                }
             }
         }
     }

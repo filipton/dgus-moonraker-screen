@@ -12,7 +12,9 @@ pub struct MoonrakerApiRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     params: Option<params::MoonrakerParam>,
-    id: u16,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<u16>,
 }
 
 #[derive(Debug, Clone)]
@@ -32,7 +34,7 @@ impl MoonrakerMsg {
             jsonrpc: "2.0".to_string(),
             method: self.method.clone(),
             params: self.params.clone(),
-            id,
+            id: Some(id),
         };
 
         serde_json::to_string(&request).unwrap()
