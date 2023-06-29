@@ -12,6 +12,9 @@ pub enum MoonrakerParam {
 
     NotifyProcStatUpdate(Vec<NotifyProcStatUpdateRes>),
     NotifyStatusUpdate(HashMap<String, HashMap<String, Value>>, f64),
+    FilesMetadata {
+        filename: String,
+    },
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

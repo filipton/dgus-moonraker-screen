@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 pub mod methods;
 pub mod params;
-pub mod result;
 pub mod websocket;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

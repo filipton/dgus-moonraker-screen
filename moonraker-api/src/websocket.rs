@@ -1,3 +1,4 @@
+use crate::MoonrakerMsg;
 use anyhow::Result;
 use fastwebsockets::{FragmentCollector, Frame};
 use hyper::{
@@ -7,8 +8,6 @@ use hyper::{
 };
 use std::future::Future;
 use tokio::net::TcpStream;
-
-use crate::MoonrakerMsg;
 
 struct SpawnExecutor;
 impl<Fut> hyper::rt::Executor<Fut> for SpawnExecutor
@@ -59,7 +58,6 @@ async fn ws_connection(
                 let json = msg.to_json();
                 let payload = json.as_bytes();
 
-                println!("DBG: Sending: {}", json);
                 ws.write_frame(Frame::text(payload.into())).await.unwrap();
             }
             Ok(msg) = ws.read_frame() => {
@@ -70,14 +68,8 @@ async fn ws_connection(
                 if let Ok(msg) = msg {
                     tx.send(msg).unwrap();
                 } else {
-                    /*
-                    if json.contains("notify_proc_stat_update") {
-                        continue;
-                    }
-                    */
-
                     //println!("DBG: {}", msg.err().unwrap());
-                    //println!("DBG: Received: {}", json);
+                    println!("DBG: Received: {}", json);
                 }
             }
         }

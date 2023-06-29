@@ -1,5 +1,3 @@
-use std::time::SystemTime;
-
 use anyhow::Result;
 use chrono::{DateTime, Local, Timelike};
 use rppal::uart::Uart;
@@ -45,7 +43,6 @@ async fn connect_to_serial() -> Result<()> {
             .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
             .await;
 
-        let client = reqwest::Client::new();
         loop {
             now = Local::now();
 
@@ -147,7 +144,6 @@ async fn connect_to_serial() -> Result<()> {
     check_boot_state(&mut serial).await?;
 
     let mut last_alive = Instant::now();
-    let client = reqwest::Client::new();
 
     let mut buffer = vec![0; 1024];
     loop {
@@ -182,24 +178,9 @@ async fn connect_to_serial() -> Result<()> {
                         match btn {
                             2 => {
                                 println!("EMERGENCY STOP");
-
-                                // TODO: if this fails, we should probably try again
-                                _ = client
-                                    .get(format!(
-                                        "http://{}/printer/emergency_stop",
-                                        MOONRAKER_API_URL
-                                    ))
-                                    .send()
-                                    .await;
                             }
                             9 => {
-                                _ = client
-                                    .post(format!(
-                                        "http://{}/printer/firmware_restart",
-                                        MOONRAKER_API_URL
-                                    ))
-                                    .send()
-                                    .await;
+                                println!("Restarting firmware...");
                             }
                             _ => {
                                 println!("Button pressed: {}", btn);

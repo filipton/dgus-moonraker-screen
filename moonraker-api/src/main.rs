@@ -1,21 +1,22 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use moonraker_api::{websocket, MoonrakerMsg};
+use moonraker_api::{methods::MoonrakerMethod, websocket, MoonrakerMsg};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let (tx, mut rx) = websocket::connect("192.168.1.18:7125").await?;
 
-    tx.send(MoonrakerMsg::new(
-        moonraker_api::methods::MoonrakerMethod::EmergencyStop,
-        None,
-    ))?;
-
+    /*
     let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
     objects.insert("display_status".to_string(), None);
+    objects.insert("print_stats".to_string(), None);
     objects.insert(
         "extruder".to_string(),
+        Some(vec!["target".into(), "temperature".into()]),
+    );
+    objects.insert(
+        "heater_bed".to_string(),
         Some(vec!["target".into(), "temperature".into()]),
     );
 
@@ -23,11 +24,19 @@ async fn main() -> Result<()> {
         moonraker_api::methods::MoonrakerMethod::PrinterObjectsSubscribe,
         Some(moonraker_api::params::MoonrakerParam::PrinterObjectsSubscribe { objects }),
     ))?;
+    */
+
+    tx.send(MoonrakerMsg::new(
+        moonraker_api::methods::MoonrakerMethod::FilesMetadata,
+        Some(moonraker_api::params::MoonrakerParam::FilesMetadata {
+            filename: "bcut-stk.gcode".into(),
+        }),
+    ))?;
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         if let Some(msg) = rx.recv().await {
-            println!("DBG2: Received: {:#?}", msg);
+            println!("DBG: Received: {:#?}", msg);
         }
     }
 }
