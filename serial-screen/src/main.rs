@@ -1,11 +1,18 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use chrono::{DateTime, Local, Timelike};
+use moonraker_api::MoonrakerMsg;
 use rppal::uart::Uart;
 use serial_utils::{construct_change_page, construct_get_page, construct_i16, construct_text};
-use structs::ScreenState;
-use tokio::{sync::RwLock, time::Instant};
+use structs::{PrinterStateResult, ScreenState};
+use tokio::{
+    sync::{
+        mpsc::{UnboundedReceiver, UnboundedSender},
+        Mutex, RwLock,
+    },
+    time::Instant,
+};
 
 mod serial_utils;
 mod structs;
@@ -20,9 +27,28 @@ pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
 #[tokio::main]
 async fn main() -> Result<()> {
     let (tx, mut rx) = moonraker_api::connect(MOONRAKER_API_URL).await?;
+    let rx = Arc::new(Mutex::new(rx));
+
+    let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
+    objects.insert("display_status".to_string(), None);
+    objects.insert("print_stats".to_string(), None);
+    objects.insert(
+        "extruder".to_string(),
+        Some(vec!["target".into(), "temperature".into()]),
+    );
+    objects.insert(
+        "heater_bed".to_string(),
+        Some(vec!["target".into(), "temperature".into()]),
+    );
+
+    // subscribe to printer updates
+    tx.send(MoonrakerMsg::new_param_id(
+        moonraker_api::methods::MoonrakerMethod::PrinterObjectsSubscribe,
+        moonraker_api::params::MoonrakerParam::PrinterObjectsSubscribe { objects },
+    ))?;
 
     loop {
-        let res = connect_to_serial().await;
+        let res = connect_to_serial(&tx, rx.clone()).await;
         if let Err(_) = res {
             // retry after 5 seconds
             tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_TIMEOUT)).await;
@@ -30,7 +56,10 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn connect_to_serial() -> Result<()> {
+async fn connect_to_serial(
+    moonraker_tx: &UnboundedSender<MoonrakerMsg>,
+    moonraker_rx: Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>,
+) -> Result<()> {
     let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
     if let Err(e) = serial {
         return Err(anyhow::anyhow!("Error: {}", e));
@@ -47,6 +76,91 @@ async fn connect_to_serial() -> Result<()> {
             {
                 let mut screen_state = screen_state.write().await;
                 screen_state.time = current_time;
+
+                loop {
+                    if let Ok(msg) = moonraker_rx.lock().await.try_recv() {
+                        if let MoonrakerMsg::MsgMethodParam {
+                            jsonrpc: _,
+                            method: _,
+                            params,
+                        } = msg.clone()
+                        {
+                            if let moonraker_api::MoonrakerParam::NotifyStatusUpdate(data, _) =
+                                params
+                            {
+                                if let Some(display_status) = data.get("display_status") {
+                                    if let Some(progress) = display_status.get("progress") {
+                                        screen_state.printing_progress =
+                                            (progress.as_f64().unwrap_or(0.0) * 100.0).round()
+                                                as i16;
+                                    }
+                                }
+
+                                if let Some(extruder) = data.get("extruder") {
+                                    if let Some(temperature) = extruder.get("temperature") {
+                                        screen_state.nozzle_temp =
+                                            temperature.as_f64().unwrap_or(0.0).round() as i16;
+                                    }
+
+                                    if let Some(target) = extruder.get("target") {
+                                        screen_state.target_nozzle_temp =
+                                            target.as_f64().unwrap_or(0.0).round() as i16;
+                                    }
+                                }
+
+                                if let Some(heater_bed) = data.get("heater_bed") {
+                                    if let Some(temperature) = heater_bed.get("temperature") {
+                                        screen_state.bed_temp =
+                                            temperature.as_f64().unwrap_or(0.0).round() as i16;
+                                    }
+
+                                    if let Some(target) = heater_bed.get("target") {
+                                        screen_state.target_bed_temp =
+                                            target.as_f64().unwrap_or(0.0).round() as i16;
+                                    }
+                                }
+
+                                //println!("Got status update: {:?}", data);
+                            }
+                        }
+
+                        if let MoonrakerMsg::MsgResult {
+                            jsonrpc: _,
+                            result,
+                            id,
+                        } = msg
+                        {
+                            if id
+                                != moonraker_api::get_method_id(
+                                    &moonraker_api::MoonrakerMethod::PrinterObjectsSubscribe,
+                                )
+                            {
+                                continue;
+                            }
+
+                            let result: PrinterStateResult = serde_json::from_value(result)
+                                .map_err(|e| anyhow::anyhow!("SERDE Error: {}", e))
+                                .unwrap();
+
+                            screen_state.printing_progress =
+                                (result.status.display_status.progress * 100.0).round() as i16;
+
+                            screen_state.nozzle_temp =
+                                result.status.extruder.temperature.round() as i16;
+                            screen_state.target_nozzle_temp =
+                                result.status.extruder.target.round() as i16;
+
+                            screen_state.bed_temp =
+                                result.status.heater_bed.temperature.round() as i16;
+                            screen_state.target_bed_temp =
+                                result.status.heater_bed.target.round() as i16;
+
+                            //println!("Got result ({}): {:?}", id, result);
+                        }
+                    } else {
+                        break;
+                    }
+                }
 
                 let update_screen_res = screen_state
                     .update_changed(&mut old_screen_state, &tx)
