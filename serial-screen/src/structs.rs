@@ -44,7 +44,7 @@ pub struct Extruder {
 #[serde(rename_all = "camelCase")]
 pub struct DisplayStatus {
     pub progress: f64,
-    pub message: Value,
+    //pub message: Value,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,13 +52,13 @@ pub struct DisplayStatus {
 pub struct PrintStats {
     pub filename: String,
     #[serde(rename = "total_duration")]
-    pub total_duration: f64,
+    pub total_duration: Option<f64>,
     #[serde(rename = "print_duration")]
-    pub print_duration: f64,
-    #[serde(rename = "filament_used")]
-    pub filament_used: f64,
+    pub print_duration: Option<f64>,
+    //#[serde(rename = "filament_used")]
+    //pub filament_used: f64,
     pub state: String,
-    pub message: String,
+    //pub message: String,
     pub info: Info,
 }
 
@@ -66,9 +66,9 @@ pub struct PrintStats {
 #[serde(rename_all = "camelCase")]
 pub struct Info {
     #[serde(rename = "total_layer")]
-    pub total_layer: i64,
+    pub total_layer: Option<i64>,
     #[serde(rename = "current_layer")]
-    pub current_layer: i64,
+    pub current_layer: Option<i64>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

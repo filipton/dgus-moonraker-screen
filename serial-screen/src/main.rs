@@ -87,8 +87,21 @@ async fn connect_to_serial() -> Result<()> {
                         ))
                         .await;
 
-                    let model_name =
-                        printer_stats.result.status.print_stats.filename[..=20].to_string();
+                    let mut model_name = printer_stats.result.status.print_stats.filename.clone();
+                    if model_name.len() > 20 {
+                        model_name = model_name[..20].to_string();
+                    } else {
+                        let left_pad = (20 - model_name.len()) / 2;
+                        let right_pad = 20 - model_name.len() - left_pad;
+
+                        model_name = format!(
+                            "{}{}{}",
+                            " ".repeat(left_pad),
+                            model_name,
+                            " ".repeat(right_pad)
+                        );
+                    }
+
                     _ = tx.send(construct_text(0x2015, &model_name)).await;
 
                     let file_metadata = client
