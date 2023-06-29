@@ -12,8 +12,9 @@ use serde_json::Value;
 pub struct ScreenState {
     pub current_page: u8,
 
-    pub time: String,           // 0x2000/5 HH:MM
-    pub estimated_time: String, // 0x2005/10 ETA: HH:MM
+    pub time: String,       // 0x2000/5 HH:MM
+    estimated_time: String, // 0x2005/10 ETA: HH:MM
+    pub file_estimated_time: i32,
 
     pub model_name: String, // 0x2015/20 Model Name (centered)
 
@@ -32,6 +33,7 @@ impl ScreenState {
 
             time: "00:00".to_string(),
             estimated_time: " ".repeat(10).to_string(),
+            file_estimated_time: 0,
             model_name: " ".repeat(20).to_string(),
             nozzle_temp: 0,
             target_nozzle_temp: 0,
@@ -47,6 +49,7 @@ impl ScreenState {
 
             time: String::new(),
             estimated_time: String::new(),
+            file_estimated_time: -1,
             model_name: String::new(),
             nozzle_temp: -1,
             target_nozzle_temp: -1,
@@ -65,12 +68,26 @@ impl ScreenState {
         // always send time because it's like ping
         let _ = serial_tx.send(construct_text(0x2000, &self.time)).await;
 
-        if self.estimated_time != old.estimated_time {
-            println!("chg: estimated_time: {}", self.estimated_time);
+        if self.file_estimated_time != old.file_estimated_time {
+            println!("chg: estimated_time: {}", self.file_estimated_time);
+
+            let estimated_time_str = if self.file_estimated_time == -1 {
+                " ".repeat(10)
+            } else {
+                let est_print_time =
+                    (self.printing_progress as f64 / 100.0) * self.file_estimated_time as f64;
+
+                let eta = self.file_estimated_time - est_print_time as i32;
+                let eta_hours = eta / 3600;
+                let eta_minutes = (eta - eta_hours * 3600) / 60;
+                format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes)
+            };
+
             let _ = serial_tx
-                .send(construct_text(0x2005, &self.estimated_time))
+                .send(construct_text(0x2005, &estimated_time_str))
                 .await;
 
+            old.file_estimated_time = self.file_estimated_time;
             old.estimated_time = self.estimated_time.clone();
         }
 
@@ -192,4 +209,54 @@ pub struct Info {
     pub total_layer: Option<i64>,
     #[serde(rename = "current_layer")]
     pub current_layer: Option<i64>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMetadataRoot {
+    pub result: FileMetadataResult,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMetadataResult {
+    pub size: i64,
+    pub modified: f64,
+    pub uuid: String,
+    pub slicer: String,
+    #[serde(rename = "slicer_version")]
+    pub slicer_version: String,
+    #[serde(rename = "gcode_start_byte")]
+    pub gcode_start_byte: i64,
+    #[serde(rename = "gcode_end_byte")]
+    pub gcode_end_byte: i64,
+    #[serde(rename = "layer_count")]
+    pub layer_count: i64,
+    #[serde(rename = "object_height")]
+    pub object_height: f64,
+    #[serde(rename = "estimated_time")]
+    pub estimated_time: i64,
+    #[serde(rename = "nozzle_diameter")]
+    pub nozzle_diameter: f64,
+    #[serde(rename = "layer_height")]
+    pub layer_height: f64,
+    #[serde(rename = "first_layer_height")]
+    pub first_layer_height: f64,
+    #[serde(rename = "first_layer_extr_temp")]
+    pub first_layer_extr_temp: f64,
+    #[serde(rename = "first_layer_bed_temp")]
+    pub first_layer_bed_temp: f64,
+    #[serde(rename = "filament_name")]
+    pub filament_name: String,
+    #[serde(rename = "filament_type")]
+    pub filament_type: String,
+    #[serde(rename = "filament_total")]
+    pub filament_total: f64,
+    #[serde(rename = "filament_weight_total")]
+    pub filament_weight_total: f64,
+    #[serde(rename = "print_start_time")]
+    pub print_start_time: f64,
+    #[serde(rename = "job_id")]
+    pub job_id: String,
+    pub filename: String,
 }

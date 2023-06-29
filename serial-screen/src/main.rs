@@ -5,7 +5,7 @@ use chrono::Local;
 use moonraker_api::MoonrakerMsg;
 use rppal::uart::Uart;
 use serial_utils::construct_change_page;
-use structs::{PrinterStateResult, ScreenState};
+use structs::{FileMetadataRoot, PrinterStateResult, ScreenState};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -68,15 +68,17 @@ async fn connect_to_serial(
         return Err(anyhow::anyhow!("Error: {}", e));
     }
 
+    let client = reqwest::Client::new();
+
     let mut old_screen_state = ScreenState::new_old();
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
 
-    tokio::spawn(async move {
+    let screen_update_task = tokio::spawn(async move {
         loop {
-            let current_time = Local::now().format("%H:%M").to_string();
-
             {
                 let mut screen_state = screen_state.write().await;
+
+                let current_time = Local::now().format("%H:%M").to_string();
                 screen_state.time = current_time;
 
                 loop {
@@ -124,10 +126,23 @@ async fn connect_to_serial(
 
                                 if let Some(print_stats) = data.get("print_stats") {
                                     if let Some(filename) = print_stats.get("filename") {
-                                        let model_name = filename.as_str().unwrap_or("");
+                                        let model_name = filename
+                                            .as_str()
+                                            .unwrap_or("")
+                                            .split('.')
+                                            .next()
+                                            .unwrap_or("");
 
                                         screen_state.model_name =
-                                            utils::center_pad(model_name, ' ', 20);
+                                            utils::center_pad(model_name, " ", 20);
+
+                                        screen_state.file_estimated_time = get_file_estimated_time(
+                                            &client,
+                                            filename.as_str().unwrap_or(""),
+                                        )
+                                        .await
+                                        .unwrap_or(Some(-1))
+                                        .unwrap_or(-1);
                                     }
                                 }
 
@@ -166,9 +181,22 @@ async fn connect_to_serial(
                             screen_state.target_bed_temp =
                                 result.status.heater_bed.target.round() as i16;
 
-                            let model_name = result.status.print_stats.filename;
-                            screen_state.model_name = utils::center_pad(&model_name, ' ', 20);
-                            println!("{:?}, {:?}", model_name, screen_state.model_name);
+                            let model_name = result
+                                .status
+                                .print_stats
+                                .filename
+                                .split('.')
+                                .next()
+                                .unwrap_or("");
+                            screen_state.model_name = utils::center_pad(&model_name, " ", 20);
+
+                            screen_state.file_estimated_time = get_file_estimated_time(
+                                &client,
+                                &result.status.print_stats.filename,
+                            )
+                            .await
+                            .unwrap_or(Some(-1))
+                            .unwrap_or(-1);
 
                             //println!("Got result ({}): {:?}", id, result);
                         }
@@ -187,23 +215,6 @@ async fn connect_to_serial(
             }
 
             /*
-                        let mut model_name = printer_stats.result.status.print_stats.filename.clone();
-                        if model_name.len() > 20 {
-                            model_name = model_name[..20].to_string();
-                        } else {
-                            let left_pad = (20 - model_name.len()) / 2;
-                            let right_pad = 20 - model_name.len() - left_pad;
-
-                            model_name = format!(
-                                "{}{}{}",
-                                " ".repeat(left_pad),
-                                model_name,
-                                " ".repeat(right_pad)
-                            );
-                        }
-
-                        _ = tx.send(construct_text(0x2015, &model_name)).await;
-
                         let file_metadata = client
                             .get(format!(
                                 "http://{}/server/files/metadata?filename={}",
@@ -247,6 +258,8 @@ async fn connect_to_serial(
     loop {
         if last_alive.elapsed().as_millis() > TIMEOUT_THRESHOLD {
             println!("Connection to screen lost.");
+            screen_update_task.abort();
+
             return Err(anyhow::anyhow!("Connection to screen lost."));
         }
 
@@ -328,4 +341,22 @@ async fn check_boot_state(serial: &mut Uart) -> Result<()> {
 
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     }
+}
+
+async fn get_file_estimated_time(client: &reqwest::Client, filename: &str) -> Result<Option<i32>> {
+    let file_metadata = client
+        .get(format!(
+            "http://{}/server/files/metadata?filename={}",
+            MOONRAKER_API_URL, filename
+        ))
+        .send()
+        .await;
+
+    if let Ok(file_metadata) = file_metadata {
+        if let Ok(file_metadata) = file_metadata.json::<FileMetadataRoot>().await {
+            return Ok(Some(file_metadata.result.estimated_time as i32));
+        }
+    }
+
+    Ok(None)
 }
