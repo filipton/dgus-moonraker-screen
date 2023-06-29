@@ -7,6 +7,11 @@ you are using klipper - your lcd screen isn't working (yes i know there is a for
 that just works, but then you can't use latest version of klipper). So this project is
 making your screen great again!
 
+## Other printers
+Yes you can use it on other printer - but you must to buy a DWIN Display.
+Comunication with display is done via UART connection with Raspberry PI
+so your motherboard doesn't need to have display connector.
+
 ## Requirements
 - Klipper
 - Moonraker (you have it installed if you are using Mainsail/Fluidd)
@@ -20,10 +25,10 @@ making your screen great again!
 - Nozzle/Bed temp
 - Print progress bar
 
-### Todo (near future)
-- Pause/Resume/Stop buttons in priting progress
-- Toolhead movement
-- Pre-heat screen
-- Macros list (and ability to run them)
-- Files list (and ability to select them for printing)
-- Settings menu (for now only IP will be shown there)
+## Todo (near future)
+- [ ] Pause/Resume/Stop buttons in priting progress
+- [ ] Toolhead movement
+- [ ] Pre-heat screen
+- [ ] Macros list (and ability to run them)
+- [ ] Files list (and ability to select them for printing)
+- [ ] Settings menu (for now only IP will be shown there)
