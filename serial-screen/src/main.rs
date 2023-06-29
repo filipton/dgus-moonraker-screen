@@ -6,17 +6,23 @@ use rppal::uart::Uart;
 use structs::{FileMetadataRoot, PrinterStatsRoot};
 use tokio::time::Instant;
 use utils::{construct_change_page, construct_get_page, construct_i16, construct_text};
+use websocket::websocket_connection_loop;
 
 mod structs;
 mod utils;
+mod websocket;
 
 const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
-const TIMEOUT_CHECK_INTERVAL: u128 = 1000;
-const TIMEOUT_THRESHOLD: u128 = 1000;
+const TIMEOUT_THRESHOLD: u128 = 5000;
+
+// TODO: make this configurable (or just hardcode it as localhost)
+pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    websocket_connection_loop().await?;
+
     loop {
         let res = connect_to_serial().await;
         if let Err(_) = res {
@@ -47,7 +53,7 @@ async fn connect_to_serial() -> Result<()> {
                 .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
                 .await;
 
-            let printer_stats = client.get("http://192.168.1.18:7125/printer/objects/query?heater_bed=target,temperature&extruder=target,temperature&display_status&print_stats")
+            let printer_stats = client.get(format!("http://{}/printer/objects/query?heater_bed=target,temperature&extruder=target,temperature&display_status&print_stats", MOONRAKER_API_URL))
                 .send().await;
 
             if let Ok(printer_stats) = printer_stats {
@@ -106,8 +112,8 @@ async fn connect_to_serial() -> Result<()> {
 
                     let file_metadata = client
                         .get(format!(
-                            "http://192.168.1.18:7125/server/files/metadata?filename={}",
-                            printer_stats.result.status.print_stats.filename
+                            "http://{}/server/files/metadata?filename={}",
+                            MOONRAKER_API_URL, printer_stats.result.status.print_stats.filename
                         ))
                         .send()
                         .await;
@@ -141,14 +147,11 @@ async fn connect_to_serial() -> Result<()> {
     check_boot_state(&mut serial).await?;
 
     let mut last_alive = Instant::now();
-    let mut alive_check_sent = false;
+    let client = reqwest::Client::new();
 
     let mut buffer = vec![0; 1024];
     loop {
-        if last_alive.elapsed().as_millis() > TIMEOUT_CHECK_INTERVAL && !alive_check_sent {
-            serial.write(&construct_get_page())?;
-            alive_check_sent = true;
-        } else if last_alive.elapsed().as_millis() > TIMEOUT_CHECK_INTERVAL + TIMEOUT_THRESHOLD {
+        if last_alive.elapsed().as_millis() > TIMEOUT_THRESHOLD {
             println!("Connection to screen lost.");
             return Err(anyhow::anyhow!("Connection to screen lost."));
         }
@@ -156,8 +159,8 @@ async fn connect_to_serial() -> Result<()> {
         let len = serial.read(&mut buffer)?;
 
         if len > 0 {
+            //println!("Read {} bytes: {:#?}", len, &buffer[..len],);
             last_alive = Instant::now();
-            alive_check_sent = false;
             //println!("Read {} bytes: {:#?}", len, &buffer[..len],);
 
             if buffer[3] == 0x82 {
@@ -171,6 +174,36 @@ async fn connect_to_serial() -> Result<()> {
                         let page_number = u16::from_be_bytes([buffer[7], buffer[8]]);
                         if page_number == 0 {
                             serial.write(&construct_change_page(1))?;
+                        }
+                    }
+                    0x1000 => {
+                        let btn = u16::from_be_bytes([buffer[7], buffer[8]]);
+
+                        match btn {
+                            2 => {
+                                println!("EMERGENCY STOP");
+
+                                // TODO: if this fails, we should probably try again
+                                _ = client
+                                    .get(format!(
+                                        "http://{}/printer/emergency_stop",
+                                        MOONRAKER_API_URL
+                                    ))
+                                    .send()
+                                    .await;
+                            }
+                            9 => {
+                                _ = client
+                                    .post(format!(
+                                        "http://{}/printer/firmware_restart",
+                                        MOONRAKER_API_URL
+                                    ))
+                                    .send()
+                                    .await;
+                            }
+                            _ => {
+                                println!("Button pressed: {}", btn);
+                            }
                         }
                     }
                     _ => {

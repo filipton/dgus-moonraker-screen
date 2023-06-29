@@ -1,5 +1,5 @@
 [package]
-name = "serial-screen"
+name = "moonraker-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,17 +7,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
-chrono = "0.4.26"
-fastwebsockets = { git = "https://github.com/denoland/fastwebsockets.git", features = ["upgrade"] }
+fastwebsockets = { git="https://github.com/denoland/fastwebsockets.git", features = ["hyper", "upgrade"] }
 hyper = { version = "0.14.27", features = ["client"] }
-reqwest = { version = "0.11.18", default-features = false, features = ["json"] }
-rppal = "0.14.1"
 serde = { version = "1.0.164", features = ["derive"] }
 serde_json = "1.0.99"
 tokio = { version = "1.29.0", features = ["full"] }
-
-[profile.release]
-strip = true
-opt-level = "s"
-lto = true
-codegen-units = 1
