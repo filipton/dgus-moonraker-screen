@@ -1,12 +1,14 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use chrono::{DateTime, Local, Timelike};
 use rppal::uart::Uart;
-use structs::{FileMetadataRoot, PrinterStatsRoot};
-use tokio::time::Instant;
-use utils::{construct_change_page, construct_get_page, construct_i16, construct_text};
+use serial_utils::{construct_change_page, construct_get_page, construct_i16, construct_text};
+use structs::ScreenState;
+use tokio::{sync::RwLock, time::Instant};
 
+mod serial_utils;
 mod structs;
-mod utils;
 
 const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
@@ -33,108 +35,115 @@ async fn connect_to_serial() -> Result<()> {
     if let Err(e) = serial {
         return Err(anyhow::anyhow!("Error: {}", e));
     }
+
+    let screen_state = Arc::new(RwLock::new(ScreenState::new()));
+    let mut old_screen_state = ScreenState::new_old();
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
 
     tokio::spawn(async move {
-        let mut now = Local::now();
-        _ = tx
-            .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
-            .await;
-
         loop {
-            now = Local::now();
+            let current_time = Local::now().format("%H:%M").to_string();
 
-            _ = tx
-                .send(construct_text(0x2000, &now.format("%H:%M").to_string()))
-                .await;
+            {
+                let mut screen_state = screen_state.write().await;
+                screen_state.time = current_time;
+
+                let update_screen_res = screen_state
+                    .update_changed(&mut old_screen_state, &tx)
+                    .await;
+
+                if let Err(e) = update_screen_res {
+                    println!("Error while updating screen: {}", e);
+                }
+            }
 
             /*
-            let printer_stats = client.get(format!("http://{}/printer/objects/query?heater_bed=target,temperature&extruder=target,temperature&display_status&print_stats", MOONRAKER_API_URL))
-                .send().await;
+                let printer_stats = client.get(format!("http://{}/printer/objects/query?heater_bed=target,temperature&extruder=target,temperature&display_status&print_stats", MOONRAKER_API_URL))
+                    .send().await;
 
-            if let Ok(printer_stats) = printer_stats {
-                if let Ok(printer_stats) = printer_stats.json::<PrinterStatsRoot>().await {
-                    _ = tx
-                        .send(construct_i16(
-                            0x2025,
-                            printer_stats.result.status.extruder.temperature.round() as i16,
-                        ))
-                        .await;
+                if let Ok(printer_stats) = printer_stats {
+                    if let Ok(printer_stats) = printer_stats.json::<PrinterStatsRoot>().await {
+                        _ = tx
+                            .send(construct_i16(
+                                0x2025,
+                                printer_stats.result.status.extruder.temperature.round() as i16,
+                            ))
+                            .await;
 
-                    _ = tx
-                        .send(construct_i16(
-                            0x2026,
-                            printer_stats.result.status.extruder.target as i16,
-                        ))
-                        .await;
+                        _ = tx
+                            .send(construct_i16(
+                                0x2026,
+                                printer_stats.result.status.extruder.target as i16,
+                            ))
+                            .await;
 
-                    _ = tx
-                        .send(construct_i16(
-                            0x2027,
-                            printer_stats.result.status.heater_bed.temperature.round() as i16,
-                        ))
-                        .await;
+                        _ = tx
+                            .send(construct_i16(
+                                0x2027,
+                                printer_stats.result.status.heater_bed.temperature.round() as i16,
+                            ))
+                            .await;
 
-                    _ = tx
-                        .send(construct_i16(
-                            0x2028,
-                            printer_stats.result.status.heater_bed.target as i16,
-                        ))
-                        .await;
+                        _ = tx
+                            .send(construct_i16(
+                                0x2028,
+                                printer_stats.result.status.heater_bed.target as i16,
+                            ))
+                            .await;
 
-                    _ = tx
-                        .send(construct_i16(
-                            0x2029,
-                            (printer_stats.result.status.display_status.progress * 100.0) as i16,
-                        ))
-                        .await;
+                        _ = tx
+                            .send(construct_i16(
+                                0x2029,
+                                (printer_stats.result.status.display_status.progress * 100.0) as i16,
+                            ))
+                            .await;
 
-                    let mut model_name = printer_stats.result.status.print_stats.filename.clone();
-                    if model_name.len() > 20 {
-                        model_name = model_name[..20].to_string();
-                    } else {
-                        let left_pad = (20 - model_name.len()) / 2;
-                        let right_pad = 20 - model_name.len() - left_pad;
+                        let mut model_name = printer_stats.result.status.print_stats.filename.clone();
+                        if model_name.len() > 20 {
+                            model_name = model_name[..20].to_string();
+                        } else {
+                            let left_pad = (20 - model_name.len()) / 2;
+                            let right_pad = 20 - model_name.len() - left_pad;
 
-                        model_name = format!(
-                            "{}{}{}",
-                            " ".repeat(left_pad),
-                            model_name,
-                            " ".repeat(right_pad)
-                        );
-                    }
+                            model_name = format!(
+                                "{}{}{}",
+                                " ".repeat(left_pad),
+                                model_name,
+                                " ".repeat(right_pad)
+                            );
+                        }
 
-                    _ = tx.send(construct_text(0x2015, &model_name)).await;
+                        _ = tx.send(construct_text(0x2015, &model_name)).await;
 
-                    let file_metadata = client
-                        .get(format!(
-                            "http://{}/server/files/metadata?filename={}",
-                            MOONRAKER_API_URL, printer_stats.result.status.print_stats.filename
-                        ))
-                        .send()
-                        .await;
+                        let file_metadata = client
+                            .get(format!(
+                                "http://{}/server/files/metadata?filename={}",
+                                MOONRAKER_API_URL, printer_stats.result.status.print_stats.filename
+                            ))
+                            .send()
+                            .await;
 
-                    if let Ok(file_metadata) = file_metadata {
-                        if let Ok(file_metadata) = file_metadata.json::<FileMetadataRoot>().await {
-                            let est_print_time =
-                                printer_stats.result.status.display_status.progress
-                                    * file_metadata.result.estimated_time as f64;
+                        if let Ok(file_metadata) = file_metadata {
+                            if let Ok(file_metadata) = file_metadata.json::<FileMetadataRoot>().await {
+                                let est_print_time =
+                                    printer_stats.result.status.display_status.progress
+                                        * file_metadata.result.estimated_time as f64;
 
-                            let eta = file_metadata.result.estimated_time - est_print_time as i64;
-                            let eta_hours = eta / 3600;
-                            let eta_minutes = (eta - eta_hours * 3600) / 60;
+                                let eta = file_metadata.result.estimated_time - est_print_time as i64;
+                                let eta_hours = eta / 3600;
+                                let eta_minutes = (eta - eta_hours * 3600) / 60;
 
-                            _ = tx
-                                .send(construct_text(
-                                    0x2005,
-                                    &format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes),
-                                ))
-                                .await;
+                                _ = tx
+                                    .send(construct_text(
+                                        0x2005,
+                                        &format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes),
+                                    ))
+                                    .await;
+                            }
                         }
                     }
                 }
-            }
-        */
+            */
 
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         }
@@ -155,9 +164,7 @@ async fn connect_to_serial() -> Result<()> {
         let len = serial.read(&mut buffer)?;
 
         if len > 0 {
-            //println!("Read {} bytes: {:#?}", len, &buffer[..len],);
             last_alive = Instant::now();
-            //println!("Read {} bytes: {:#?}", len, &buffer[..len],);
 
             if buffer[3] == 0x82 {
                 //ACK when writing
