@@ -24,11 +24,12 @@ so your motherboard doesn't need to have display connector.
 - Estimated print time
 - Nozzle/Bed temp
 - Print progress bar
+- Pause/Resume/Stop print buttons
 
 ## Todo (near future)
-- [ ] Pause/Resume/Stop buttons in priting progress
-- [ ] Toolhead movement
+- [x] Pause/Resume/Stop buttons in printing progress
 - [ ] Pre-heat screen
+- [ ] Toolhead movement
 - [ ] Macros list (and ability to run them)
 - [ ] Files list (and ability to select them for printing)
-- [ ] Settings menu (for now only IP will be shown there)
+- [ ] Settings menu
