@@ -41,9 +41,9 @@ impl From<&str> for PrinterState {
 
 pub async fn recieve_moonraker_updates(
     screen_state: &mut ScreenState,
-    moonraker_tx: MoonrakerTx,
-    moonraker_rx: MoonrakerRx,
-    serial_tx: Arc<Mutex<UnboundedSender<Vec<u8>>>>,
+    moonraker_tx: &MoonrakerTx,
+    moonraker_rx: &MoonrakerRx,
+    serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
     client: &reqwest::Client,
 ) -> Result<()> {
     loop {

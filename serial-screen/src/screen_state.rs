@@ -1,9 +1,15 @@
+use std::sync::Arc;
+
 use crate::{
-    moonraker::PrinterState,
+    moonraker::{self, MoonrakerRx, MoonrakerTx, PrinterState},
     serial_utils::{construct_i16, construct_text},
 };
 use anyhow::Result;
-use tokio::sync::mpsc::UnboundedSender;
+use chrono::Local;
+use tokio::{
+    sync::{mpsc::UnboundedSender, Mutex, RwLock},
+    task::JoinHandle,
+};
 
 // TODO: maybe use a macro for this?
 //       macro should be like serde renaming etc
@@ -68,8 +74,10 @@ impl ScreenState {
     pub async fn update_changed(
         &mut self,
         old: &mut Self,
-        serial_tx: &UnboundedSender<Vec<u8>>,
+        serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
     ) -> Result<()> {
+        let serial_tx = serial_tx.lock().await;
+
         // always send time because it's like ping
         let _ = serial_tx.send(construct_text(0x2000, &self.time));
 
@@ -152,4 +160,47 @@ impl ScreenState {
             format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes)
         }
     }
+}
+
+pub async fn spawn_update_task(
+    moonraker_tx: MoonrakerTx,
+    moonraker_rx: MoonrakerRx,
+    screen_state: Arc<RwLock<ScreenState>>,
+    serial_tx: Arc<Mutex<UnboundedSender<Vec<u8>>>>,
+) -> Result<JoinHandle<()>> {
+    let task = tokio::spawn(async move {
+        let client = reqwest::Client::new();
+        let mut old_screen_state = ScreenState::new_old();
+
+        loop {
+            {
+                let mut screen_state = screen_state.write().await;
+                let current_time = Local::now().format("%H:%M").to_string();
+                screen_state.time = current_time;
+
+                let moonraker_update_res = moonraker::recieve_moonraker_updates(
+                    &mut screen_state,
+                    &moonraker_tx,
+                    &moonraker_rx,
+                    &serial_tx,
+                    &client,
+                )
+                .await;
+                if let Err(e) = moonraker_update_res {
+                    println!("Error while receiving moonraker updates: {}", e);
+                }
+
+                let update_screen_res = screen_state
+                    .update_changed(&mut old_screen_state, &serial_tx)
+                    .await;
+                if let Err(e) = update_screen_res {
+                    println!("Error while updating screen: {}", e);
+                }
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
+    });
+
+    Ok(task)
 }

@@ -1,6 +1,5 @@
 use anyhow::Result;
 use buttons::{parse_button_click, Button};
-use chrono::Local;
 use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
@@ -58,52 +57,20 @@ async fn connect_to_serial(
         return Err(anyhow::anyhow!("Serial connection error: {}", e));
     }
 
-    let client = reqwest::Client::new();
-
-    let mut old_screen_state = ScreenState::new_old();
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
-
-    // TODO: delete this
-    let moonraker_tx_2 = moonraker_tx.clone();
-    let screen_state_2 = screen_state.clone();
-
-    let screen_update_task = tokio::spawn(async move {
-        loop {
-            {
-                let tx_mutex = Arc::new(Mutex::new(tx.clone()));
-
-                let mut screen_state = screen_state_2.write().await;
-                let current_time = Local::now().format("%H:%M").to_string();
-                screen_state.time = current_time;
-
-                let moonraker_update_res = moonraker::recieve_moonraker_updates(
-                    &mut screen_state,
-                    moonraker_tx_2.clone(),
-                    moonraker_rx.clone(),
-                    tx_mutex,
-                    &client,
-                )
-                .await;
-                if let Err(e) = moonraker_update_res {
-                    println!("Error while receiving moonraker updates: {}", e);
-                }
-
-                let update_screen_res = screen_state
-                    .update_changed(&mut old_screen_state, &tx)
-                    .await;
-                if let Err(e) = update_screen_res {
-                    println!("Error while updating screen: {}", e);
-                }
-            }
-
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        }
-    });
-
+    let mut last_alive = Instant::now();
     let mut serial = serial?;
     check_boot_state(&mut serial).await?;
 
-    let mut last_alive = Instant::now();
+    let (serial_tx, mut serial_rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+    let serial_tx = Arc::new(Mutex::new(serial_tx));
+
+    let screen_update_task = screen_state::spawn_update_task(
+        moonraker_tx.clone(),
+        moonraker_rx.clone(),
+        screen_state.clone(),
+        serial_tx.clone(),
+    )
+    .await?;
 
     let mut buffer = vec![0; 1024];
     loop {
@@ -136,7 +103,7 @@ async fn connect_to_serial(
                         let btn = u16::from_be_bytes([buffer[7], buffer[8]]);
                         let btn = Button::from_id(btn);
 
-                        let res = parse_button_click(btn, &moonraker_tx, &screen_state).await;
+                        let res = parse_button_click(btn, &moonraker_tx, &screen_state, &serial_tx).await;
                         if let Err(e) = res {
                             println!("Error while parsing button click: {}", e);
                         }
@@ -157,7 +124,7 @@ async fn connect_to_serial(
 
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
-        if let Ok(data) = rx.try_recv() {
+        if let Ok(data) = serial_rx.try_recv() {
             serial.write(&data)?;
         }
     }

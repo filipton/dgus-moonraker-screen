@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc::UnboundedSender, Mutex, RwLock};
 
 use crate::{
     moonraker::{MoonrakerTx, PrinterState},
     screen_state::ScreenState,
+    serial_utils::construct_change_page,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +39,7 @@ pub async fn parse_button_click(
     button: Button,
     moonraker_tx: &MoonrakerTx,
     screen_state: &Arc<RwLock<ScreenState>>,
+    serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
 ) -> Result<()> {
     let moonraker_tx = moonraker_tx.lock().await;
     let screen_state = screen_state.read().await;
@@ -75,7 +77,7 @@ pub async fn parse_button_click(
             {
                 // TODO: Maybe popup?
 
-                //serial.write(&construct_change_page(1))?;
+                serial_tx.lock().await.send(construct_change_page(1))?;
                 return Ok(());
             }
 
@@ -99,7 +101,7 @@ pub async fn parse_button_click(
             {
                 // TODO: Maybe popup?
 
-                //serial.write(&construct_change_page(1))?;
+                serial_tx.lock().await.send(construct_change_page(1))?;
                 return Ok(());
             }
 
