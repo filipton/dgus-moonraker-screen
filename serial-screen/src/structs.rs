@@ -61,7 +61,7 @@ impl ScreenState {
 
     // TODO: maybe create a macro for this?
     pub async fn update_changed(
-        &self,
+        &mut self,
         old: &mut Self,
         serial_tx: &tokio::sync::mpsc::Sender<Vec<u8>>,
     ) -> Result<()> {
@@ -69,26 +69,6 @@ impl ScreenState {
         let _ = serial_tx.send(construct_text(0x2000, &self.time)).await;
 
         if self.time != old.time {
-            println!("chg: estimated_time: {}", self.file_estimated_time);
-
-            let estimated_time_str = if self.file_estimated_time == -1 {
-                " ".repeat(10)
-            } else {
-                let est_print_time =
-                    (self.printing_progress as f64 / 100.0) * self.file_estimated_time as f64;
-
-                let eta = self.file_estimated_time - est_print_time as i32;
-                let eta_hours = eta / 3600;
-                let eta_minutes = (eta - eta_hours * 3600) / 60;
-                format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes)
-            };
-
-            let _ = serial_tx
-                .send(construct_text(0x2005, &estimated_time_str))
-                .await;
-
-            old.file_estimated_time = self.file_estimated_time;
-            old.estimated_time = self.estimated_time.clone();
             old.time = self.time.clone();
         }
 
@@ -135,6 +115,24 @@ impl ScreenState {
             old.target_bed_temp = self.target_bed_temp;
         }
 
+        if self.file_estimated_time != old.file_estimated_time
+            || self.printing_progress != old.printing_progress
+        {
+            let estimated_time_str = self.get_estimate_string();
+
+            if self.estimated_time != estimated_time_str {
+                let _ = serial_tx
+                    .send(construct_text(0x2005, &estimated_time_str))
+                    .await;
+
+                self.estimated_time = estimated_time_str;
+                old.file_estimated_time = self.file_estimated_time;
+                old.estimated_time = self.estimated_time.clone();
+
+                println!("chg: estimated_time: {}", self.estimated_time);
+            }
+        }
+
         if self.printing_progress != old.printing_progress {
             println!("chg: printing_progress: {}", self.printing_progress);
             let _ = serial_tx
@@ -145,6 +143,20 @@ impl ScreenState {
         }
 
         Ok(())
+    }
+
+    fn get_estimate_string(&self) -> String {
+        if self.file_estimated_time == -1 {
+            " ".repeat(10)
+        } else {
+            let est_print_time =
+                (self.printing_progress as f64 / 100.0) * self.file_estimated_time as f64;
+
+            let eta = self.file_estimated_time - est_print_time as i32;
+            let eta_hours = eta / 3600;
+            let eta_minutes = (eta - eta_hours * 3600) / 60;
+            format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes)
+        }
     }
 }
 
