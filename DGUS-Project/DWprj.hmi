@@ -10,3 +10,4 @@ SPADDRESS=5000
 001=001_start.bmp
 002=002_printing_progress.bmp
 003=003_emergency_stop.bmp
+004=004_preheat.bmp

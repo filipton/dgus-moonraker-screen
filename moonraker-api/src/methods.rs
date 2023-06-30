@@ -34,6 +34,9 @@ pub enum MoonrakerMethod {
 
     #[serde(rename = "printer.emergency_stop")]
     EmergencyStop,
+
+    #[serde(rename = "printer.gcode.script")]
+    GcodeScript,
 }
 
 pub fn get_method_id(method: &MoonrakerMethod) -> u16 {
@@ -46,6 +49,7 @@ pub fn get_method_id(method: &MoonrakerMethod) -> u16 {
         MoonrakerMethod::PrinterRestart => 4894,
         MoonrakerMethod::FirmwareRestart => 8463,
         MoonrakerMethod::EmergencyStop => 4564,
+        MoonrakerMethod::GcodeScript => 4645,
         MoonrakerMethod::NotifyKlippyReady => 0,
         MoonrakerMethod::NotifyStatusUpdate => 0,
         MoonrakerMethod::NotifyProcStatUpdate => 0,

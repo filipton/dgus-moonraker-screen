@@ -16,6 +16,9 @@ pub enum MoonrakerParam {
     FilesMetadata {
         filename: String,
     },
+    GcodeScript {
+        script: String,
+    },
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

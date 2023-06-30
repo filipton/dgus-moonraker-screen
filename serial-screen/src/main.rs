@@ -170,6 +170,47 @@ async fn connect_to_serial(
                                     ),
                                 );
                             }
+                            10 => {
+                                _ =
+                                    moonraker_tx
+                                        .lock()
+                                        .await
+                                        .send(moonraker_api::MoonrakerMsg::new_param_id(
+                                        moonraker_api::MoonrakerMethod::GcodeScript,
+                                        moonraker_api::MoonrakerParam::GcodeScript {
+                                            script:
+                                                "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=200"
+                                                    .to_string(),
+                                        },
+                                    ));
+
+                                _ =
+                                    moonraker_tx
+                                        .lock()
+                                        .await
+                                        .send(moonraker_api::MoonrakerMsg::new_param_id(
+                                        moonraker_api::MoonrakerMethod::GcodeScript,
+                                        moonraker_api::MoonrakerParam::GcodeScript {
+                                            script:
+                                                "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=45"
+                                                    .to_string(),
+                                        },
+                                    ));
+                            }
+                            11 => {
+                                _ =
+                                    moonraker_tx
+                                        .lock()
+                                        .await
+                                        .send(moonraker_api::MoonrakerMsg::new_param_id(
+                                        moonraker_api::MoonrakerMethod::GcodeScript,
+                                        moonraker_api::MoonrakerParam::GcodeScript {
+                                            script:
+                                                "TURN_OFF_HEATERS"
+                                                    .to_string(),
+                                        },
+                                    ));
+                            }
                             _ => {
                                 println!("Button pressed: {}", btn);
                             }
