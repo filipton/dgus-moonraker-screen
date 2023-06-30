@@ -1,6 +1,7 @@
 use anyhow::Result;
+use buttons::{parse_button_click, Button};
 use chrono::Local;
-use moonraker::{MoonrakerRx, MoonrakerTx, PrinterState};
+use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
 use serial_utils::construct_change_page;
@@ -11,6 +12,7 @@ use tokio::{
 };
 use utils::subscribe_websocket_events;
 
+mod buttons;
 mod moonraker;
 mod screen_state;
 mod serial_utils;
@@ -132,104 +134,11 @@ async fn connect_to_serial(
                     }
                     0x1000 => {
                         let btn = u16::from_be_bytes([buffer[7], buffer[8]]);
+                        let btn = Button::from_id(btn);
 
-                        match btn {
-                            2 => {
-                                _ = moonraker_tx.lock().await.send(
-                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                                        moonraker_api::MoonrakerMethod::EmergencyStop,
-                                    ),
-                                );
-                            }
-                            7 => {
-                                if screen_state.read().await.printer_state == PrinterState::Paused {
-                                    _ = moonraker_tx.lock().await.send(
-                                        moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                                            moonraker_api::MoonrakerMethod::PrintResume,
-                                        ),
-                                    );
-                                } else {
-                                    _ = moonraker_tx.lock().await.send(
-                                        moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                                            moonraker_api::MoonrakerMethod::PrintPause,
-                                        ),
-                                    );
-                                }
-                            }
-                            8 => {
-                                _ = moonraker_tx.lock().await.send(
-                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                                        moonraker_api::MoonrakerMethod::PrintCancel,
-                                    ),
-                                );
-                            }
-                            9 => {
-                                _ = moonraker_tx.lock().await.send(
-                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                                        moonraker_api::MoonrakerMethod::FirmwareRestart,
-                                    ),
-                                );
-                            }
-                            10 => {
-                                if screen_state.read().await.printer_state == PrinterState::Printing
-                                    || screen_state.read().await.printer_state
-                                        == PrinterState::Paused
-                                {
-                                    // TODO: Maybe popup?
-
-                                    serial.write(&construct_change_page(1))?;
-                                    continue;
-                                }
-
-                                _ =
-                                    moonraker_tx
-                                        .lock()
-                                        .await
-                                        .send(moonraker_api::MoonrakerMsg::new_param_id(
-                                        moonraker_api::MoonrakerMethod::GcodeScript,
-                                        moonraker_api::MoonrakerParam::GcodeScript {
-                                            script:
-                                                "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=200"
-                                                    .to_string(),
-                                        },
-                                    ));
-
-                                _ =
-                                    moonraker_tx
-                                        .lock()
-                                        .await
-                                        .send(moonraker_api::MoonrakerMsg::new_param_id(
-                                        moonraker_api::MoonrakerMethod::GcodeScript,
-                                        moonraker_api::MoonrakerParam::GcodeScript {
-                                            script:
-                                                "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=45"
-                                                    .to_string(),
-                                        },
-                                    ));
-                            }
-                            11 => {
-                                if screen_state.read().await.printer_state == PrinterState::Printing
-                                    || screen_state.read().await.printer_state
-                                        == PrinterState::Paused
-                                {
-                                    // TODO: Maybe popup?
-
-                                    serial.write(&construct_change_page(1))?;
-                                    continue;
-                                }
-
-                                _ = moonraker_tx.lock().await.send(
-                                    moonraker_api::MoonrakerMsg::new_param_id(
-                                        moonraker_api::MoonrakerMethod::GcodeScript,
-                                        moonraker_api::MoonrakerParam::GcodeScript {
-                                            script: "TURN_OFF_HEATERS".to_string(),
-                                        },
-                                    ),
-                                );
-                            }
-                            _ => {
-                                println!("Button pressed: {}", btn);
-                            }
+                        let res = parse_button_click(btn, &moonraker_tx, &screen_state).await;
+                        if let Err(e) = res {
+                            println!("Error while parsing button click: {}", e);
                         }
                     }
                     _ => {
@@ -268,11 +177,9 @@ async fn check_boot_state(serial: &mut Uart) -> Result<()> {
         }
 
         let len = serial.read(&mut buffer)?;
-        if len >= 3 {
-            if buffer[3] == 0x82 {
-                println!("Screen is ready");
-                return Ok(());
-            }
+        if len >= 3 && buffer[3] == 0x82 {
+            println!("Screen is ready");
+            return Ok(());
         }
 
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
