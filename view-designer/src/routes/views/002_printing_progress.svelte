@@ -84,7 +84,9 @@
         </button>
 
         <button
+            style="width: 119.65px"
             class="rounded-lg border-white border-2 border-solid px-2 bg-yellow-600"
+            id="saveOne"
             title="BTN 7"
         >
             <svg
@@ -98,10 +100,10 @@
                 <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    d="M15.75 5.25v13.5m-7.5-13.5v13.5"
+                    d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"
                 />
             </svg>
-            <span class="align-middle text-xl">Pause</span>
+            <span class="align-middle text-xl">Resume</span>
         </button>
 
         <button

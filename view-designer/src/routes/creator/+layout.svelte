@@ -7,6 +7,7 @@
     import { navigating, page } from "$app/stores";
     import { goto } from "$app/navigation";
     import { Bitmap } from "$lib/Bitmap";
+    import { cropImageArea } from "$lib/Utils";
 
     const screenWidth = 480;
     const screenHeight = 272;
@@ -129,7 +130,48 @@
         a.download = currentModule.name + ".bmp";
         a.click();
     }
+
+    async function saveOne() {
+        if (preview) {
+            alert("Please disable preview mode!");
+            return;
+        }
+
+        if (!loaded) {
+            alert("Please wait for the module to load!");
+            return;
+        }
+
+        const target = document.querySelector("#saveOne");
+        if (!target) {
+            alert("Please select an element! (Add id='saveOne' to it)");
+            return;
+        }
+
+        let targetRect = target.getBoundingClientRect();
+        let screenRect = screen.getBoundingClientRect();
+        let screenLeft = target.getBoundingClientRect().left - screenRect.left;
+        let screenTop = target.getBoundingClientRect().top - screenRect.top;
+
+        let imageData = await domtoimage.toBlob(screen);
+        let cropped = await cropImageArea(
+            imageData,
+            screenWidth,
+            screenHeight,
+            screenLeft,
+            screenTop,
+            targetRect.width,
+            targetRect.height
+        );
+
+        const a = document.createElement("a");
+        a.href = cropped;
+        a.download = "target.jpg";
+        a.click();
+    }
 </script>
+
+<div class="absolute bg-red-700" id="px" style="width: 1px; height: 1px;" />
 
 {#if dev}
     <div class="flex justify-center mt-8 flex-col items-center">
@@ -168,6 +210,9 @@
         >
         <button class="px-4 py-2 bg-gray-400 mx-1" on:click={saveAll}
             >Save all</button
+        >
+        <button class="px-4 py-2 bg-gray-400 mx-1" on:click={saveOne}
+            >Save One Element</button
         >
         <button class="px-4 py-2 bg-gray-400 mx-1" on:click={next}>Next</button>
     </div>
