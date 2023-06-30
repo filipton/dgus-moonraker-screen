@@ -70,7 +70,7 @@ async fn ws_connection(
                     tx.send(msg).unwrap();
                 } else {
                     //println!("DBG: {}", msg.err().unwrap());
-                    println!("DBG: Received: {}", json);
+                    //println!("DBG: Received: {}", json);
                 }
             }
         }

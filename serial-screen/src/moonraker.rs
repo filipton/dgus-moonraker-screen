@@ -80,6 +80,10 @@ pub async fn recieve_moonraker_updates(
                                     .unwrap_or(Some(-1))
                                     .unwrap_or(-1);
                         }
+
+                        if let Some(state) = print_stats.get("state") {
+                            screen_state.paused = state.as_str().unwrap_or("") == "paused";
+                        }
                     }
                 }
             }
@@ -104,6 +108,7 @@ pub async fn recieve_moonraker_updates(
 
                 screen_state.printing_progress =
                     (result.status.display_status.progress * 100.0).round() as i16;
+                screen_state.paused = result.status.print_stats.state == "paused";
 
                 screen_state.nozzle_temp = result.status.extruder.temperature.round() as i16;
                 screen_state.target_nozzle_temp = result.status.extruder.target.round() as i16;
@@ -130,7 +135,11 @@ pub async fn recieve_moonraker_updates(
             if let MoonrakerMsg::MsgMethod { jsonrpc: _, method } = msg {
                 if method == MoonrakerMethod::NotifyKlippyReady {
                     println!("Klippy is ready, subscribing to printer objects.");
-                    serial_tx.lock().await.send(construct_change_page(1)).unwrap();
+                    serial_tx
+                        .lock()
+                        .await
+                        .send(construct_change_page(1))
+                        .unwrap();
 
                     _ = subscribe_websocket_events(moonraker_tx.clone()).await;
                 }

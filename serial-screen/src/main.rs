@@ -61,13 +61,16 @@ async fn connect_to_serial(
     let mut old_screen_state = ScreenState::new_old();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
 
+    // TODO: delete this
     let moonraker_tx_2 = moonraker_tx.clone();
+    let screen_state_2 = screen_state.clone();
+
     let screen_update_task = tokio::spawn(async move {
         loop {
             {
                 let tx_mutex = Arc::new(Mutex::new(tx.clone()));
 
-                let mut screen_state = screen_state.write().await;
+                let mut screen_state = screen_state_2.write().await;
                 let current_time = Local::now().format("%H:%M").to_string();
                 screen_state.time = current_time;
 
@@ -139,11 +142,19 @@ async fn connect_to_serial(
                                 );
                             }
                             7 => {
-                                _ = moonraker_tx.lock().await.send(
-                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                                        moonraker_api::MoonrakerMethod::PrintPause,
-                                    ),
-                                );
+                                if screen_state.read().await.paused {
+                                    _ = moonraker_tx.lock().await.send(
+                                        moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                                            moonraker_api::MoonrakerMethod::PrintResume,
+                                        ),
+                                    );
+                                } else {
+                                    _ = moonraker_tx.lock().await.send(
+                                        moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                                            moonraker_api::MoonrakerMethod::PrintPause,
+                                        ),
+                                    );
+                                }
                             }
                             8 => {
                                 _ = moonraker_tx.lock().await.send(

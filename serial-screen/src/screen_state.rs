@@ -23,6 +23,7 @@ pub struct ScreenState {
     pub target_bed_temp: i16,    // 0x2028/1
 
     pub printing_progress: i16, // 0x2029/1 (0-100)
+    pub paused: bool,           // 0x2030/1
 }
 
 impl ScreenState {
@@ -39,6 +40,7 @@ impl ScreenState {
             bed_temp: 0,
             target_bed_temp: 0,
             printing_progress: 0,
+            paused: false,
         }
     }
 
@@ -55,6 +57,7 @@ impl ScreenState {
             bed_temp: -1,
             target_bed_temp: -1,
             printing_progress: -1,
+            paused: true,
         }
     }
 
@@ -119,6 +122,12 @@ impl ScreenState {
             let _ = serial_tx.send(construct_i16(0x2029, self.printing_progress));
 
             old.printing_progress = self.printing_progress;
+        }
+
+        if self.paused != old.paused {
+            let _ = serial_tx.send(construct_i16(0x2030, self.paused as i16));
+
+            old.paused = self.paused;
         }
 
         Ok(())
