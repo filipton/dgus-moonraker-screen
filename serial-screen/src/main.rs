@@ -1,16 +1,12 @@
 use anyhow::Result;
 use chrono::Local;
-use moonraker_api::{MoonrakerMethod, MoonrakerMsg};
+use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
 use serial_utils::construct_change_page;
 use std::sync::Arc;
-use structs::{FileMetadataRoot, PrinterStateRoot};
 use tokio::{
-    sync::{
-        mpsc::{UnboundedReceiver, UnboundedSender},
-        Mutex, RwLock,
-    },
+    sync::{Mutex, RwLock},
     time::Instant,
 };
 use utils::subscribe_websocket_events;
@@ -31,15 +27,20 @@ pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
 #[tokio::main]
 async fn main() -> Result<()> {
     let screen_state = Arc::new(RwLock::new(ScreenState::new()));
-    let (tx, rx) = moonraker_api::connect(MOONRAKER_API_URL).await?;
-    let tx = Arc::new(Mutex::new(tx));
-    let rx = Arc::new(Mutex::new(rx));
 
-    subscribe_websocket_events(tx.clone()).await?;
+    let moonraker = moonraker_api::connect(MOONRAKER_API_URL).await?;
+    let moonraker_tx = Arc::new(Mutex::new(moonraker.0));
+    let moonraker_rx = Arc::new(Mutex::new(moonraker.1));
+    subscribe_websocket_events(moonraker_tx.clone()).await?;
+
     loop {
-        let res = connect_to_serial(screen_state.clone(), tx.clone(), rx.clone()).await;
+        let res = connect_to_serial(
+            screen_state.clone(),
+            moonraker_tx.clone(),
+            moonraker_rx.clone(),
+        )
+        .await;
         if let Err(_) = res {
-            // retry after 5 seconds
             tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_TIMEOUT)).await;
         }
     }
@@ -47,12 +48,12 @@ async fn main() -> Result<()> {
 
 async fn connect_to_serial(
     screen_state: Arc<RwLock<ScreenState>>,
-    moonraker_tx: Arc<Mutex<UnboundedSender<MoonrakerMsg>>>,
-    moonraker_rx: Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>,
+    moonraker_tx: MoonrakerTx,
+    moonraker_rx: MoonrakerRx,
 ) -> Result<()> {
     let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
     if let Err(e) = serial {
-        return Err(anyhow::anyhow!("Error: {}", e));
+        return Err(anyhow::anyhow!("Serial connection error: {}", e));
     }
 
     let client = reqwest::Client::new();
@@ -60,17 +61,21 @@ async fn connect_to_serial(
     let mut old_screen_state = ScreenState::new_old();
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
 
+    let moonraker_tx_2 = moonraker_tx.clone();
     let screen_update_task = tokio::spawn(async move {
         loop {
             {
+                let tx_mutex = Arc::new(Mutex::new(tx.clone()));
+
                 let mut screen_state = screen_state.write().await;
                 let current_time = Local::now().format("%H:%M").to_string();
                 screen_state.time = current_time;
 
                 let moonraker_update_res = moonraker::recieve_moonraker_updates(
                     &mut screen_state,
-                    moonraker_tx.clone(),
+                    moonraker_tx_2.clone(),
                     moonraker_rx.clone(),
+                    tx_mutex,
                     &client,
                 )
                 .await;
@@ -81,7 +86,6 @@ async fn connect_to_serial(
                 let update_screen_res = screen_state
                     .update_changed(&mut old_screen_state, &tx)
                     .await;
-
                 if let Err(e) = update_screen_res {
                     println!("Error while updating screen: {}", e);
                 }
@@ -128,10 +132,18 @@ async fn connect_to_serial(
 
                         match btn {
                             2 => {
-                                println!("EMERGENCY STOP");
+                                _ = moonraker_tx.lock().await.send(
+                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                                        moonraker_api::MoonrakerMethod::EmergencyStop,
+                                    ),
+                                );
                             }
                             9 => {
-                                println!("Restarting firmware...");
+                                _ = moonraker_tx.lock().await.send(
+                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                                        moonraker_api::MoonrakerMethod::FirmwareRestart,
+                                    ),
+                                );
                             }
                             _ => {
                                 println!("Button pressed: {}", btn);

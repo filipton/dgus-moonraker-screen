@@ -46,7 +46,13 @@ pub enum MoonrakerMsg {
     MsgMethod {
         jsonrpc: String,
         method: MoonrakerMethod,
-    }
+    },
+
+    MsgMethodID {
+        jsonrpc: String,
+        method: MoonrakerMethod,
+        id: u16,
+    },
 }
 
 impl MoonrakerMsg {
@@ -65,6 +71,16 @@ impl MoonrakerMsg {
             jsonrpc: "2.0".to_string(),
             method,
             params,
+            id,
+        }
+    }
+
+    pub fn new_with_method_and_id(method: methods::MoonrakerMethod) -> Self {
+        let id = methods::get_method_id(&method);
+
+        MoonrakerMsg::MsgMethodID {
+            jsonrpc: "2.0".to_string(),
+            method,
             id,
         }
     }

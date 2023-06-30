@@ -5,6 +5,7 @@ pub fn construct_change_page(page_number: u16) -> Vec<u8> {
     construct_write_buf(0x0084, &page_number_buffer)
 }
 
+#[allow(dead_code)]
 pub fn construct_get_page() -> Vec<u8> {
     construct_read_buf(0x0014, 1)
 }
@@ -32,6 +33,7 @@ pub fn construct_write_buf(address: u16, buffer: &[u8]) -> Vec<u8> {
     send_buff
 }
 
+#[allow(dead_code)]
 pub fn construct_read_buf(address: u16, length: u8) -> Vec<u8> {
     let mut send_buff = vec![
         0x5A, // Header

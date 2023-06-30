@@ -1,21 +1,26 @@
+use crate::{
+    screen_state::ScreenState,
+    serial_utils::construct_change_page,
+    structs::{FileMetadataRoot, PrinterStateRoot},
+    utils::{self, subscribe_websocket_events},
+    MOONRAKER_API_URL,
+};
 use anyhow::Result;
 use moonraker_api::{MoonrakerMethod, MoonrakerMsg};
 use std::sync::Arc;
 use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender},
-    Mutex, RwLock,
+    Mutex,
 };
-use crate::{
-    screen_state::ScreenState,
-    structs::{FileMetadataRoot, PrinterStateRoot},
-    utils::{self, subscribe_websocket_events},
-    MOONRAKER_API_URL,
-};
+
+pub type MoonrakerTx = Arc<Mutex<UnboundedSender<MoonrakerMsg>>>;
+pub type MoonrakerRx = Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>;
 
 pub async fn recieve_moonraker_updates(
     screen_state: &mut ScreenState,
-    moonraker_tx: Arc<Mutex<UnboundedSender<MoonrakerMsg>>>,
-    moonraker_rx: Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>,
+    moonraker_tx: MoonrakerTx,
+    moonraker_rx: MoonrakerRx,
+    serial_tx: Arc<Mutex<tokio::sync::mpsc::Sender<Vec<u8>>>>,
     client: &reqwest::Client,
 ) -> Result<()> {
     loop {
@@ -125,6 +130,8 @@ pub async fn recieve_moonraker_updates(
             if let MoonrakerMsg::MsgMethod { jsonrpc: _, method } = msg {
                 if method == MoonrakerMethod::NotifyKlippyReady {
                     println!("Klippy is ready, subscribing to printer objects.");
+                    serial_tx.lock().await.send(construct_change_page(1)).await.unwrap();
+
                     _ = subscribe_websocket_events(moonraker_tx.clone()).await;
                 }
             }
