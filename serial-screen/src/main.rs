@@ -59,7 +59,7 @@ async fn connect_to_serial(
     let client = reqwest::Client::new();
 
     let mut old_screen_state = ScreenState::new_old();
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
 
     let moonraker_tx_2 = moonraker_tx.clone();
     let screen_update_task = tokio::spawn(async move {
@@ -135,6 +135,20 @@ async fn connect_to_serial(
                                 _ = moonraker_tx.lock().await.send(
                                     moonraker_api::MoonrakerMsg::new_with_method_and_id(
                                         moonraker_api::MoonrakerMethod::EmergencyStop,
+                                    ),
+                                );
+                            }
+                            7 => {
+                                _ = moonraker_tx.lock().await.send(
+                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                                        moonraker_api::MoonrakerMethod::PrintPause,
+                                    ),
+                                );
+                            }
+                            8 => {
+                                _ = moonraker_tx.lock().await.send(
+                                    moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                                        moonraker_api::MoonrakerMethod::PrintCancel,
                                     ),
                                 );
                             }

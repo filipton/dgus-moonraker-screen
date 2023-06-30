@@ -20,7 +20,7 @@ pub async fn recieve_moonraker_updates(
     screen_state: &mut ScreenState,
     moonraker_tx: MoonrakerTx,
     moonraker_rx: MoonrakerRx,
-    serial_tx: Arc<Mutex<tokio::sync::mpsc::Sender<Vec<u8>>>>,
+    serial_tx: Arc<Mutex<UnboundedSender<Vec<u8>>>>,
     client: &reqwest::Client,
 ) -> Result<()> {
     loop {
@@ -130,7 +130,7 @@ pub async fn recieve_moonraker_updates(
             if let MoonrakerMsg::MsgMethod { jsonrpc: _, method } = msg {
                 if method == MoonrakerMethod::NotifyKlippyReady {
                     println!("Klippy is ready, subscribing to printer objects.");
-                    serial_tx.lock().await.send(construct_change_page(1)).await.unwrap();
+                    serial_tx.lock().await.send(construct_change_page(1)).unwrap();
 
                     _ = subscribe_websocket_events(moonraker_tx.clone()).await;
                 }

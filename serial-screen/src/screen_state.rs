@@ -1,5 +1,6 @@
 use crate::serial_utils::{construct_i16, construct_text};
 use anyhow::Result;
+use tokio::sync::mpsc::UnboundedSender;
 
 // TODO: maybe use a macro for this?
 //       macro should be like serde renaming etc
@@ -61,49 +62,41 @@ impl ScreenState {
     pub async fn update_changed(
         &mut self,
         old: &mut Self,
-        serial_tx: &tokio::sync::mpsc::Sender<Vec<u8>>,
+        serial_tx: &UnboundedSender<Vec<u8>>,
     ) -> Result<()> {
         // always send time because it's like ping
-        let _ = serial_tx.send(construct_text(0x2000, &self.time)).await;
+        let _ = serial_tx.send(construct_text(0x2000, &self.time));
 
         if self.time != old.time {
             old.time = self.time.clone();
         }
 
         if self.model_name != old.model_name {
-            let _ = serial_tx
-                .send(construct_text(0x2015, &self.model_name))
-                .await;
+            let _ = serial_tx.send(construct_text(0x2015, &self.model_name));
 
             old.model_name = self.model_name.clone();
         }
 
         if self.nozzle_temp != old.nozzle_temp {
-            let _ = serial_tx
-                .send(construct_i16(0x2025, self.nozzle_temp))
-                .await;
+            let _ = serial_tx.send(construct_i16(0x2025, self.nozzle_temp));
 
             old.nozzle_temp = self.nozzle_temp;
         }
 
         if self.target_nozzle_temp != old.target_nozzle_temp {
-            let _ = serial_tx
-                .send(construct_i16(0x2026, self.target_nozzle_temp))
-                .await;
+            let _ = serial_tx.send(construct_i16(0x2026, self.target_nozzle_temp));
 
             old.target_nozzle_temp = self.target_nozzle_temp;
         }
 
         if self.bed_temp != old.bed_temp {
-            let _ = serial_tx.send(construct_i16(0x2027, self.bed_temp)).await;
+            let _ = serial_tx.send(construct_i16(0x2027, self.bed_temp));
 
             old.bed_temp = self.bed_temp;
         }
 
         if self.target_bed_temp != old.target_bed_temp {
-            let _ = serial_tx
-                .send(construct_i16(0x2028, self.target_bed_temp))
-                .await;
+            let _ = serial_tx.send(construct_i16(0x2028, self.target_bed_temp));
 
             old.target_bed_temp = self.target_bed_temp;
         }
@@ -114,9 +107,7 @@ impl ScreenState {
             let estimated_time_str = self.get_estimate_string();
 
             if self.estimated_time != estimated_time_str {
-                let _ = serial_tx
-                    .send(construct_text(0x2005, &estimated_time_str))
-                    .await;
+                let _ = serial_tx.send(construct_text(0x2005, &estimated_time_str));
 
                 self.estimated_time = estimated_time_str;
                 old.file_estimated_time = self.file_estimated_time;
@@ -125,9 +116,7 @@ impl ScreenState {
         }
 
         if self.printing_progress != old.printing_progress {
-            let _ = serial_tx
-                .send(construct_i16(0x2029, self.printing_progress))
-                .await;
+            let _ = serial_tx.send(construct_i16(0x2029, self.printing_progress));
 
             old.printing_progress = self.printing_progress;
         }
