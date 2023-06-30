@@ -42,6 +42,11 @@ pub enum MoonrakerMsg {
         params: Vec<MoonrakerParam>,
         id: u16,
     },
+
+    MsgMethod {
+        jsonrpc: String,
+        method: MoonrakerMethod,
+    }
 }
 
 impl MoonrakerMsg {

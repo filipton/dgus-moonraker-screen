@@ -8,6 +8,9 @@ pub enum MoonrakerMethod {
     #[serde(rename = "notify_status_update")]
     NotifyStatusUpdate,
 
+    #[serde(rename = "notify_klippy_ready")]
+    NotifyKlippyReady,
+
     #[serde(rename = "printer.objects.subscribe")]
     PrinterObjectsSubscribe,
 
@@ -28,8 +31,9 @@ pub enum MoonrakerMethod {
 
     #[serde(rename = "printer.restart")]
     PrinterRestart,
-    //#[serde(rename = "printer.emergency_stop")]
-    //EmergencyStop,
+
+    #[serde(rename = "printer.emergency_stop")]
+    EmergencyStop,
 }
 
 pub fn get_method_id(method: &MoonrakerMethod) -> u16 {
@@ -41,7 +45,8 @@ pub fn get_method_id(method: &MoonrakerMethod) -> u16 {
         MoonrakerMethod::PrintCancel => 2578,
         MoonrakerMethod::PrinterRestart => 4894,
         MoonrakerMethod::FirmwareRestart => 8463,
-        //MoonrakerMethod::EmergencyStop => 4564,
+        MoonrakerMethod::EmergencyStop => 4564,
+        MoonrakerMethod::NotifyKlippyReady => 0,
         MoonrakerMethod::NotifyStatusUpdate => 0,
         MoonrakerMethod::NotifyProcStatUpdate => 0,
     }

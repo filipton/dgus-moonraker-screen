@@ -33,7 +33,7 @@ impl ScreenState {
 
             time: "00:00".to_string(),
             estimated_time: " ".repeat(10).to_string(),
-            file_estimated_time: 0,
+            file_estimated_time: -1,
             model_name: " ".repeat(20).to_string(),
             nozzle_temp: 0,
             target_nozzle_temp: 0,
@@ -68,7 +68,7 @@ impl ScreenState {
         // always send time because it's like ping
         let _ = serial_tx.send(construct_text(0x2000, &self.time)).await;
 
-        if self.file_estimated_time != old.file_estimated_time {
+        if self.time != old.time {
             println!("chg: estimated_time: {}", self.file_estimated_time);
 
             let estimated_time_str = if self.file_estimated_time == -1 {
@@ -89,6 +89,7 @@ impl ScreenState {
 
             old.file_estimated_time = self.file_estimated_time;
             old.estimated_time = self.estimated_time.clone();
+            old.time = self.time.clone();
         }
 
         if self.model_name != old.model_name {

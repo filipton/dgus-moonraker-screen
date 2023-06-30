@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use chrono::Local;
-use moonraker_api::MoonrakerMsg;
+use moonraker_api::{MoonrakerMethod, MoonrakerMsg};
 use rppal::uart::Uart;
 use serial_utils::construct_change_page;
 use structs::{FileMetadataRoot, PrinterStateResult, ScreenState};
@@ -20,7 +20,7 @@ mod utils;
 
 const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
-const TIMEOUT_THRESHOLD: u128 = 5000;
+const TIMEOUT_THRESHOLD: u128 = 2000;
 
 // TODO: make this configurable (or just hardcode it as localhost)
 pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
@@ -29,6 +29,7 @@ pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
 async fn main() -> Result<()> {
     let screen_state = Arc::new(RwLock::new(ScreenState::new()));
     let (tx, rx) = moonraker_api::connect(MOONRAKER_API_URL).await?;
+    let tx = Arc::new(Mutex::new(tx));
     let rx = Arc::new(Mutex::new(rx));
 
     let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
@@ -44,13 +45,13 @@ async fn main() -> Result<()> {
     );
 
     // subscribe to printer updates
-    tx.send(MoonrakerMsg::new_param_id(
+    tx.lock().await.send(MoonrakerMsg::new_param_id(
         moonraker_api::methods::MoonrakerMethod::PrinterObjectsSubscribe,
         moonraker_api::params::MoonrakerParam::PrinterObjectsSubscribe { objects },
     ))?;
 
     loop {
-        let res = connect_to_serial(screen_state.clone(), &tx, rx.clone()).await;
+        let res = connect_to_serial(screen_state.clone(), tx.clone(), rx.clone()).await;
         if let Err(_) = res {
             // retry after 5 seconds
             tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_TIMEOUT)).await;
@@ -60,7 +61,7 @@ async fn main() -> Result<()> {
 
 async fn connect_to_serial(
     screen_state: Arc<RwLock<ScreenState>>,
-    _moonraker_tx: &UnboundedSender<MoonrakerMsg>,
+    moonraker_tx: Arc<Mutex<UnboundedSender<MoonrakerMsg>>>,
     moonraker_rx: Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>,
 ) -> Result<()> {
     let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
@@ -145,8 +146,6 @@ async fn connect_to_serial(
                                         .unwrap_or(-1);
                                     }
                                 }
-
-                                //println!("Got status update: {:?}", data);
                             }
                         }
 
@@ -154,7 +153,7 @@ async fn connect_to_serial(
                             jsonrpc: _,
                             result,
                             id,
-                        } = msg
+                        } = msg.clone()
                         {
                             if id
                                 != moonraker_api::get_method_id(
@@ -197,8 +196,29 @@ async fn connect_to_serial(
                             .await
                             .unwrap_or(Some(-1))
                             .unwrap_or(-1);
+                        }
 
-                            //println!("Got result ({}): {:?}", id, result);
+                        if let MoonrakerMsg::MsgMethod { jsonrpc: _, method } = msg {
+                            if method == MoonrakerMethod::NotifyKlippyReady {
+                                let mut objects: HashMap<String, Option<Vec<String>>> =
+                                    HashMap::new();
+                                objects.insert("display_status".to_string(), None);
+                                objects.insert("print_stats".to_string(), None);
+                                objects.insert(
+                                    "extruder".to_string(),
+                                    Some(vec!["target".into(), "temperature".into()]),
+                                );
+                                objects.insert(
+                                    "heater_bed".to_string(),
+                                    Some(vec!["target".into(), "temperature".into()]),
+                                );
+
+                                // subscribe to printer updates
+                                _ = moonraker_tx.lock().await.send(MoonrakerMsg::new_param_id(
+                                    moonraker_api::methods::MoonrakerMethod::PrinterObjectsSubscribe,
+                                    moonraker_api::params::MoonrakerParam::PrinterObjectsSubscribe { objects },
+                                ));
+                            }
                         }
                     } else {
                         break;
@@ -213,37 +233,6 @@ async fn connect_to_serial(
                     println!("Error while updating screen: {}", e);
                 }
             }
-
-            /*
-                        let file_metadata = client
-                            .get(format!(
-                                "http://{}/server/files/metadata?filename={}",
-                                MOONRAKER_API_URL, printer_stats.result.status.print_stats.filename
-                            ))
-                            .send()
-                            .await;
-
-                        if let Ok(file_metadata) = file_metadata {
-                            if let Ok(file_metadata) = file_metadata.json::<FileMetadataRoot>().await {
-                                let est_print_time =
-                                    printer_stats.result.status.display_status.progress
-                                        * file_metadata.result.estimated_time as f64;
-
-                                let eta = file_metadata.result.estimated_time - est_print_time as i64;
-                                let eta_hours = eta / 3600;
-                                let eta_minutes = (eta - eta_hours * 3600) / 60;
-
-                                _ = tx
-                                    .send(construct_text(
-                                        0x2005,
-                                        &format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes),
-                                    ))
-                                    .await;
-                            }
-                        }
-                    }
-                }
-            */
 
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         }
