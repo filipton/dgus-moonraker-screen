@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     moonraker::{self, MoonrakerRx, MoonrakerTx, PrinterState},
-    serial_utils::{construct_i16, construct_text},
+    serial_utils::{construct_i16, construct_text, construct_change_page},
 };
 use anyhow::Result;
 use chrono::Local;
@@ -42,9 +42,9 @@ impl ScreenState {
             printer_state: PrinterState::Standby,
 
             time: "00:00".to_string(),
-            estimated_time: " ".repeat(10).to_string(),
+            estimated_time: " ".repeat(10),
             file_estimated_time: -1,
-            model_name: " ".repeat(20).to_string(),
+            model_name: " ".repeat(20),
             nozzle_temp: 0,
             target_nozzle_temp: 0,
             bed_temp: 0,
@@ -86,31 +86,31 @@ impl ScreenState {
         }
 
         if self.model_name != old.model_name {
-            let _ = serial_tx.send(construct_text(0x2015, &self.model_name));
+            _ = serial_tx.send(construct_text(0x2015, &self.model_name));
 
             old.model_name = self.model_name.clone();
         }
 
         if self.nozzle_temp != old.nozzle_temp {
-            let _ = serial_tx.send(construct_i16(0x2025, self.nozzle_temp));
+            _ = serial_tx.send(construct_i16(0x2025, self.nozzle_temp));
 
             old.nozzle_temp = self.nozzle_temp;
         }
 
         if self.target_nozzle_temp != old.target_nozzle_temp {
-            let _ = serial_tx.send(construct_i16(0x2026, self.target_nozzle_temp));
+            _ = serial_tx.send(construct_i16(0x2026, self.target_nozzle_temp));
 
             old.target_nozzle_temp = self.target_nozzle_temp;
         }
 
         if self.bed_temp != old.bed_temp {
-            let _ = serial_tx.send(construct_i16(0x2027, self.bed_temp));
+            _ = serial_tx.send(construct_i16(0x2027, self.bed_temp));
 
             old.bed_temp = self.bed_temp;
         }
 
         if self.target_bed_temp != old.target_bed_temp {
-            let _ = serial_tx.send(construct_i16(0x2028, self.target_bed_temp));
+            _ = serial_tx.send(construct_i16(0x2028, self.target_bed_temp));
 
             old.target_bed_temp = self.target_bed_temp;
         }
@@ -121,7 +121,7 @@ impl ScreenState {
             let estimated_time_str = self.get_estimate_string();
 
             if self.estimated_time != estimated_time_str {
-                let _ = serial_tx.send(construct_text(0x2005, &estimated_time_str));
+                _ = serial_tx.send(construct_text(0x2005, &estimated_time_str));
 
                 self.estimated_time = estimated_time_str;
                 old.file_estimated_time = self.file_estimated_time;
@@ -130,16 +130,20 @@ impl ScreenState {
         }
 
         if self.printing_progress != old.printing_progress {
-            let _ = serial_tx.send(construct_i16(0x2029, self.printing_progress));
+            _ = serial_tx.send(construct_i16(0x2029, self.printing_progress));
 
             old.printing_progress = self.printing_progress;
         }
 
         if self.printer_state != old.printer_state {
-            let _ = serial_tx.send(construct_i16(
+            _ = serial_tx.send(construct_i16(
                 0x2030,
                 (self.printer_state == PrinterState::Paused) as i16,
             ));
+
+            if self.printer_state == PrinterState::Printing {
+                _ = serial_tx.send(construct_change_page(1));
+            }
 
             old.printer_state = self.printer_state;
         }

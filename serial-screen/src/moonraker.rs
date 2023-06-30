@@ -8,7 +8,7 @@ use crate::{
 use anyhow::Result;
 use moonraker_api::{MoonrakerMethod, MoonrakerMsg};
 use serde::Deserialize;
-use std::{str::FromStr, sync::Arc};
+use std::{sync::Arc};
 use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender},
     Mutex,
@@ -46,8 +46,7 @@ pub async fn recieve_moonraker_updates(
     serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
     client: &reqwest::Client,
 ) -> Result<()> {
-    loop {
-        if let Ok(msg) = moonraker_rx.lock().await.try_recv() {
+    while let Ok(msg) = moonraker_rx.lock().await.try_recv() {
             if let MoonrakerMsg::MsgMethodParam {
                 jsonrpc: _,
                 method: _,
@@ -98,7 +97,7 @@ pub async fn recieve_moonraker_updates(
                             screen_state.model_name = utils::center_pad(model_name, " ", 20);
 
                             screen_state.file_estimated_time =
-                                get_file_estimated_time(&client, filename.as_str().unwrap_or(""))
+                                get_file_estimated_time(client, filename.as_str().unwrap_or(""))
                                     .await
                                     .unwrap_or(Some(-1))
                                     .unwrap_or(-1);
@@ -146,10 +145,10 @@ pub async fn recieve_moonraker_updates(
                     .split('.')
                     .next()
                     .unwrap_or("");
-                screen_state.model_name = utils::center_pad(&model_name, " ", 20);
+                screen_state.model_name = utils::center_pad(model_name, " ", 20);
 
                 screen_state.file_estimated_time =
-                    get_file_estimated_time(&client, &result.status.print_stats.filename)
+                    get_file_estimated_time(client, &result.status.print_stats.filename)
                         .await
                         .unwrap_or(Some(-1))
                         .unwrap_or(-1);
@@ -167,9 +166,6 @@ pub async fn recieve_moonraker_updates(
                     _ = subscribe_websocket_events(moonraker_tx.clone()).await;
                 }
             }
-        } else {
-            break;
-        }
     }
 
     Ok(())

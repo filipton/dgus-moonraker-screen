@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
             moonraker_rx.clone(),
         )
         .await;
-        if let Err(_) = res {
+        if res.is_err() {
             tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_TIMEOUT)).await;
         }
     }
