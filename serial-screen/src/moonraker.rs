@@ -7,7 +7,8 @@ use crate::{
 };
 use anyhow::Result;
 use moonraker_api::{MoonrakerMethod, MoonrakerMsg};
-use std::sync::Arc;
+use serde::Deserialize;
+use std::{str::FromStr, sync::Arc};
 use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender},
     Mutex,
@@ -15,6 +16,28 @@ use tokio::sync::{
 
 pub type MoonrakerTx = Arc<Mutex<UnboundedSender<MoonrakerMsg>>>;
 pub type MoonrakerRx = Arc<Mutex<UnboundedReceiver<MoonrakerMsg>>>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub enum PrinterState {
+    Standby,
+    Printing,
+    Paused,
+    Error,
+    Complete,
+}
+
+impl From<&str> for PrinterState {
+    fn from(s: &str) -> Self {
+        match s {
+            "standby" => PrinterState::Standby,
+            "printing" => PrinterState::Printing,
+            "paused" => PrinterState::Paused,
+            "error" => PrinterState::Error,
+            "complete" => PrinterState::Complete,
+            _ => PrinterState::Standby,
+        }
+    }
+}
 
 pub async fn recieve_moonraker_updates(
     screen_state: &mut ScreenState,
@@ -82,7 +105,7 @@ pub async fn recieve_moonraker_updates(
                         }
 
                         if let Some(state) = print_stats.get("state") {
-                            screen_state.paused = state.as_str().unwrap_or("") == "paused";
+                            screen_state.printer_state = state.as_str().unwrap_or("").into();
                         }
                     }
                 }
@@ -108,7 +131,7 @@ pub async fn recieve_moonraker_updates(
 
                 screen_state.printing_progress =
                     (result.status.display_status.progress * 100.0).round() as i16;
-                screen_state.paused = result.status.print_stats.state == "paused";
+                screen_state.printer_state = result.status.print_stats.state.as_str().into();
 
                 screen_state.nozzle_temp = result.status.extruder.temperature.round() as i16;
                 screen_state.target_nozzle_temp = result.status.extruder.target.round() as i16;

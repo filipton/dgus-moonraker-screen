@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Local;
-use moonraker::{MoonrakerRx, MoonrakerTx};
+use moonraker::{MoonrakerRx, MoonrakerTx, PrinterState};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
 use serial_utils::construct_change_page;
@@ -142,7 +142,7 @@ async fn connect_to_serial(
                                 );
                             }
                             7 => {
-                                if screen_state.read().await.paused {
+                                if screen_state.read().await.printer_state == PrinterState::Paused {
                                     _ = moonraker_tx.lock().await.send(
                                         moonraker_api::MoonrakerMsg::new_with_method_and_id(
                                             moonraker_api::MoonrakerMethod::PrintResume,
@@ -171,6 +171,16 @@ async fn connect_to_serial(
                                 );
                             }
                             10 => {
+                                if screen_state.read().await.printer_state == PrinterState::Printing
+                                    || screen_state.read().await.printer_state
+                                        == PrinterState::Paused
+                                {
+                                    // TODO: Maybe popup?
+
+                                    serial.write(&construct_change_page(1))?;
+                                    continue;
+                                }
+
                                 _ =
                                     moonraker_tx
                                         .lock()
@@ -198,18 +208,24 @@ async fn connect_to_serial(
                                     ));
                             }
                             11 => {
-                                _ =
-                                    moonraker_tx
-                                        .lock()
-                                        .await
-                                        .send(moonraker_api::MoonrakerMsg::new_param_id(
+                                if screen_state.read().await.printer_state == PrinterState::Printing
+                                    || screen_state.read().await.printer_state
+                                        == PrinterState::Paused
+                                {
+                                    // TODO: Maybe popup?
+
+                                    serial.write(&construct_change_page(1))?;
+                                    continue;
+                                }
+
+                                _ = moonraker_tx.lock().await.send(
+                                    moonraker_api::MoonrakerMsg::new_param_id(
                                         moonraker_api::MoonrakerMethod::GcodeScript,
                                         moonraker_api::MoonrakerParam::GcodeScript {
-                                            script:
-                                                "TURN_OFF_HEATERS"
-                                                    .to_string(),
+                                            script: "TURN_OFF_HEATERS".to_string(),
                                         },
-                                    ));
+                                    ),
+                                );
                             }
                             _ => {
                                 println!("Button pressed: {}", btn);

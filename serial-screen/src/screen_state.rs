@@ -1,4 +1,7 @@
-use crate::serial_utils::{construct_i16, construct_text};
+use crate::{
+    moonraker::PrinterState,
+    serial_utils::{construct_i16, construct_text},
+};
 use anyhow::Result;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -10,6 +13,7 @@ use tokio::sync::mpsc::UnboundedSender;
 #[derive(Debug, Clone)]
 pub struct ScreenState {
     pub current_page: u8,
+    pub printer_state: PrinterState,
 
     pub time: String,       // 0x2000/5 HH:MM
     estimated_time: String, // 0x2005/10 ETA: HH:MM
@@ -23,13 +27,13 @@ pub struct ScreenState {
     pub target_bed_temp: i16,    // 0x2028/1
 
     pub printing_progress: i16, // 0x2029/1 (0-100)
-    pub paused: bool,           // 0x2030/1
 }
 
 impl ScreenState {
     pub fn new() -> ScreenState {
         ScreenState {
             current_page: 0,
+            printer_state: PrinterState::Standby,
 
             time: "00:00".to_string(),
             estimated_time: " ".repeat(10).to_string(),
@@ -40,13 +44,13 @@ impl ScreenState {
             bed_temp: 0,
             target_bed_temp: 0,
             printing_progress: 0,
-            paused: false,
         }
     }
 
     pub fn new_old() -> ScreenState {
         ScreenState {
             current_page: 0,
+            printer_state: PrinterState::Paused,
 
             time: String::new(),
             estimated_time: String::new(),
@@ -57,7 +61,6 @@ impl ScreenState {
             bed_temp: -1,
             target_bed_temp: -1,
             printing_progress: -1,
-            paused: true,
         }
     }
 
@@ -124,10 +127,13 @@ impl ScreenState {
             old.printing_progress = self.printing_progress;
         }
 
-        if self.paused != old.paused {
-            let _ = serial_tx.send(construct_i16(0x2030, self.paused as i16));
+        if self.printer_state != old.printer_state {
+            let _ = serial_tx.send(construct_i16(
+                0x2030,
+                (self.printer_state == PrinterState::Paused) as i16,
+            ));
 
-            old.paused = self.paused;
+            old.printer_state = self.printer_state;
         }
 
         Ok(())
