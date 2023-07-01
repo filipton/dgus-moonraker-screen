@@ -1,5 +1,5 @@
 use anyhow::Result;
-use buttons::{parse_button_click, Button};
+use buttons::{parse_button_click, Button, MovementButton, parse_movement_button};
 use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
@@ -104,6 +104,15 @@ async fn connect_to_serial(
                         let btn = Button::from_id(btn);
 
                         let res = parse_button_click(btn, &moonraker_tx, &screen_state, &serial_tx).await;
+                        if let Err(e) = res {
+                            println!("Error while parsing button click: {}", e);
+                        }
+                    }
+                    0x1001 => {
+                        let btn = u16::from_be_bytes([buffer[7], buffer[8]]);
+                        let btn = MovementButton::from_id(btn);
+
+                        let res = parse_movement_button(btn, &moonraker_tx, &screen_state, &serial_tx).await;
                         if let Err(e) = res {
                             println!("Error while parsing button click: {}", e);
                         }

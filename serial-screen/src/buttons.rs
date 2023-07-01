@@ -13,6 +13,7 @@ use crate::{
 pub enum Button {
     Undefined(u16),
 
+    PrinterMovement,
     EmergencyStop,
     Pause,
     Stop,
@@ -25,6 +26,7 @@ impl Button {
     pub fn from_id(id: u16) -> Self {
         match id {
             2 => Button::EmergencyStop,
+            4 => Button::PrinterMovement,
             7 => Button::Pause,
             8 => Button::Stop,
             9 => Button::EmergencyStopRelease,
@@ -45,6 +47,14 @@ pub async fn parse_button_click(
     let screen_state = screen_state.read().await;
 
     match button {
+        Button::PrinterMovement => {
+            if screen_state.printer_state != PrinterState::Printing
+                && screen_state.printer_state != PrinterState::Paused
+            {
+                serial_tx.lock().await.send(construct_change_page(5))?;
+                return Ok(());
+            }
+        }
         Button::EmergencyStop => {
             moonraker_tx.send(moonraker_api::MoonrakerMsg::new_with_method_and_id(
                 moonraker_api::MoonrakerMethod::EmergencyStop,
@@ -114,6 +124,108 @@ pub async fn parse_button_click(
         }
         Button::Undefined(id) => {
             println!("Undefined button pressed with ID: {}", id);
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MovementButton {
+    Undefined(u16),
+
+    ZPlus,
+    ZMinus,
+    YPlus,
+    YMinus,
+    XPlus,
+    XMinus,
+    Home,
+}
+
+impl MovementButton {
+    pub fn from_id(id: u16) -> Self {
+        match id {
+            1 => MovementButton::YPlus,
+            2 => MovementButton::XPlus,
+            3 => MovementButton::XMinus,
+            4 => MovementButton::YMinus,
+            5 => MovementButton::ZPlus,
+            6 => MovementButton::ZMinus,
+            7 => MovementButton::Home,
+            _ => MovementButton::Undefined(id),
+        }
+    }
+}
+
+pub async fn parse_movement_button(
+    button: MovementButton,
+    moonraker_tx: &MoonrakerTx,
+    screen_state: &Arc<RwLock<ScreenState>>,
+    serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
+) -> Result<()> {
+    let moonraker_tx = moonraker_tx.lock().await;
+    let screen_state = screen_state.read().await;
+
+    match button {
+        MovementButton::Home => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G28".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::XPlus => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G91\nG1 X+10 F6000\nG90".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::XMinus => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G91\nG1 X-10 F6000\nG90".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::YPlus => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G91\nG1 Y+10 F6000\nG90".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::YMinus => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G91\nG1 Y-10 F6000\nG90".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::ZPlus => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G91\nG1 Z+10 F6000\nG90".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::ZMinus => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                moonraker_api::MoonrakerMethod::GcodeScript,
+                moonraker_api::MoonrakerParam::GcodeScript {
+                    script: "G91\nG1 Z-10 F6000\nG90".to_string(),
+                },
+            ))?;
+        }
+        MovementButton::Undefined(id) => {
+            println!("Undefined movement button pressed with ID: {}", id);
         }
     }
 
