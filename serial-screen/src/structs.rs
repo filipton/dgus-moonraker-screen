@@ -18,6 +18,15 @@ pub struct Status {
     pub heater_bed: HeaterBed,
     #[serde(rename = "print_stats")]
     pub print_stats: PrintStats,
+    #[serde(rename = "toolhead")]
+    pub toolhead: Toolhead,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Toolhead {
+    #[serde(rename = "homed_axes")]
+    pub homed_axes: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

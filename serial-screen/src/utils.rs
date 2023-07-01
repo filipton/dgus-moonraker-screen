@@ -21,6 +21,7 @@ pub async fn subscribe_websocket_events(
     let mut objects: HashMap<String, Option<Vec<String>>> = HashMap::new();
     objects.insert("display_status".to_string(), None);
     objects.insert("print_stats".to_string(), None);
+    objects.insert("toolhead".to_string(), None);
     objects.insert(
         "extruder".to_string(),
         Some(vec!["target".into(), "temperature".into()]),

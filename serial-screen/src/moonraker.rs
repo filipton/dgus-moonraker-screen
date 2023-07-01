@@ -51,6 +51,7 @@ impl From<&str> for PrinterState {
 impl From<&str> for HomedAxis {
     fn from(s: &str) -> Self {
         match s {
+            "" => HomedAxis::None,
             "x" => HomedAxis::X,
             "y" => HomedAxis::Y,
             "xy" => HomedAxis::XY,
@@ -127,6 +128,12 @@ pub async fn recieve_moonraker_updates(
                         screen_state.printer_state = state.as_str().unwrap_or("").into();
                     }
                 }
+
+                if let Some(toolhead) = data.get("toolhead") {
+                    if let Some(homed_axes) = toolhead.get("homed_axes") {
+                        screen_state.homed_axes = homed_axes.as_str().unwrap_or("").into();
+                    }
+                }
             }
         }
 
@@ -151,6 +158,7 @@ pub async fn recieve_moonraker_updates(
             screen_state.printing_progress =
                 (result.status.display_status.progress * 100.0).round() as i16;
             screen_state.printer_state = result.status.print_stats.state.as_str().into();
+            screen_state.homed_axes = result.status.toolhead.homed_axes.as_str().into();
 
             screen_state.nozzle_temp = result.status.extruder.temperature.round() as i16;
             screen_state.target_nozzle_temp = result.status.extruder.target.round() as i16;
