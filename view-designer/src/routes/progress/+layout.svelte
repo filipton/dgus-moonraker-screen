@@ -17,8 +17,12 @@
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             const a = document.createElement("a");
-            a.href = await domtoimage.toJpeg(progressBar, { quality: 0.95 });
-            a.download = i + ".jpg";
+            a.href = Bitmap.fromPixelData(
+                (await domtoimage.toPixelData(progressBar)).buffer,
+                progressBar.offsetWidth,
+                progressBar.offsetHeight
+            );
+            a.download = i + ".bmp";
             a.click();
         }
     }
