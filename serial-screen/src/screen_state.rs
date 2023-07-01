@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     moonraker::{self, MoonrakerRx, MoonrakerTx, PrinterState},
-    serial_utils::{construct_i16, construct_text, construct_change_page},
+    serial_utils::{construct_change_page, construct_i16, construct_text},
 };
 use anyhow::Result;
 use chrono::Local;
@@ -142,7 +142,10 @@ impl ScreenState {
             ));
 
             if self.printer_state == PrinterState::Printing {
-                _ = serial_tx.send(construct_change_page(1));
+                // Change page to printing status page
+                _ = serial_tx.send(construct_change_page(2));
+            } else {
+                _ = serial_tx.send(construct_text(0x2005, " ".repeat(10).as_str()));
             }
 
             old.printer_state = self.printer_state;
