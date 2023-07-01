@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    moonraker::{self, MoonrakerRx, MoonrakerTx, PrinterState},
+    moonraker::{self, HomedAxis, MoonrakerRx, MoonrakerTx, PrinterState},
     serial_utils::{construct_change_page, construct_i16, construct_text},
 };
 use anyhow::Result;
@@ -20,6 +20,7 @@ use tokio::{
 pub struct ScreenState {
     pub current_page: u8,
     pub printer_state: PrinterState,
+    pub homed_axes: HomedAxis,
 
     pub time: String,       // 0x2000/5 HH:MM
     estimated_time: String, // 0x2005/10 ETA: HH:MM
@@ -40,6 +41,7 @@ impl ScreenState {
         ScreenState {
             current_page: 0,
             printer_state: PrinterState::Standby,
+            homed_axes: HomedAxis::None,
 
             time: "00:00".to_string(),
             estimated_time: " ".repeat(10),
@@ -53,14 +55,18 @@ impl ScreenState {
         }
     }
 
+    /// Creates a new ScreenState with old values
+    /// It must be different from new() because we want to send
+    /// all the data on the first update
     pub fn new_old() -> ScreenState {
         ScreenState {
             current_page: 0,
             printer_state: PrinterState::Paused,
+            homed_axes: HomedAxis::XYZ,
 
             time: String::new(),
             estimated_time: String::new(),
-            file_estimated_time: -1,
+            file_estimated_time: -2,
             model_name: String::new(),
             nozzle_temp: -1,
             target_nozzle_temp: -1,

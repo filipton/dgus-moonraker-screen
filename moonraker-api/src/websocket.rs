@@ -61,8 +61,13 @@ async fn ws_connection(
 
                 ws.write_frame(Frame::text(payload.into())).await.unwrap();
             }
-            Ok(msg) = ws.read_frame() => {
-                let payload = msg.payload;
+            msg = ws.read_frame() => {
+                if let Err(e) = msg {
+                    println!("DBG: Error while reading frame: {}", e);
+                    return Err(e.into());
+                }
+
+                let payload = msg.unwrap().payload;
                 let json = std::str::from_utf8(&payload).unwrap();
 
                 let msg = MoonrakerMsg::from_json(json);
