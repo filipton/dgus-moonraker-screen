@@ -67,36 +67,37 @@ pub async fn parse_button_click(
     screen_state: &Arc<RwLock<ScreenState>>,
     serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
 ) -> Result<()> {
+    let serial_tx = serial_tx.lock().await;
     let moonraker_tx = moonraker_tx.lock().await;
-    let screen_state = screen_state.read().await;
+    let mut screen_state = screen_state.write().await;
 
     match button {
         Button::PrintingProgress => {
-            serial_tx.lock().await.send(construct_change_page(2))?;
+            serial_tx.send(construct_change_page(2))?;
         }
         Button::EmergencyStop => {
             moonraker_tx.send(moonraker_api::MoonrakerMsg::new_with_method_and_id(
                 moonraker_api::MoonrakerMethod::EmergencyStop,
             ))?;
 
-            serial_tx.lock().await.send(construct_change_page(3))?;
+            serial_tx.send(construct_change_page(3))?;
         }
         Button::Preheat => {
-            serial_tx.lock().await.send(construct_change_page(4))?;
+            serial_tx.send(construct_change_page(4))?;
         }
         Button::PrinterMovement => {
             if screen_state.printer_state != PrinterState::Printing
                 && screen_state.printer_state != PrinterState::Paused
             {
-                serial_tx.lock().await.send(construct_change_page(5))?;
+                serial_tx.send(construct_change_page(5))?;
                 return Ok(());
             }
         }
         Button::Settings => {
-            //serial_tx.lock().await.send(construct_change_page(7))?;
+            //serial_tx.send(construct_change_page(7))?;
         }
         Button::BackToMain => {
-            serial_tx.lock().await.send(construct_change_page(1))?;
+            serial_tx.send(construct_change_page(1))?;
         }
         Button::Pause => {
             if screen_state.printer_state == PrinterState::Paused {
@@ -126,7 +127,6 @@ pub async fn parse_button_click(
                 return Ok(());
             }
 
-            serial_tx.lock().await.send(construct_change_page(1))?;
             moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
                 moonraker_api::MoonrakerMethod::GcodeScript,
                 moonraker_api::MoonrakerParam::GcodeScript {
@@ -140,6 +140,7 @@ pub async fn parse_button_click(
                     script: "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=45".to_string(),
                 },
             ))?;
+            serial_tx.send(construct_change_page(1))?;
         }
         Button::PreheatCooldown => {
             if screen_state.printer_state == PrinterState::Printing
@@ -148,35 +149,85 @@ pub async fn parse_button_click(
                 return Ok(());
             }
 
-            serial_tx.lock().await.send(construct_change_page(1))?;
             moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
                 moonraker_api::MoonrakerMethod::GcodeScript,
                 moonraker_api::MoonrakerParam::GcodeScript {
                     script: "TURN_OFF_HEATERS".to_string(),
                 },
             ))?;
+            serial_tx.send(construct_change_page(1))?;
         }
         Button::PreheatCustom => {}
         Button::MacrosUP => {
-            println!("Macros UP");
+            if screen_state.macros_scroll > 0 {
+                screen_state.macros_scroll -= 1;
+                screen_state.update_macros_list(&serial_tx).await?;
+            }
         }
         Button::MacrosDOWN => {
-            println!("Macros DOWN");
+            if screen_state.macros_scroll < screen_state.macros.len() - 1 {
+                screen_state.macros_scroll += 1;
+                screen_state.update_macros_list(&serial_tx).await?;
+            }
         }
         Button::MacrosButton1 => {
-            println!("Macros Button 1");
+            let macro_value = screen_state.macros.get(screen_state.macros_scroll);
+
+            if let Some(macro_value) = macro_value {
+                moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                    moonraker_api::MoonrakerMethod::GcodeScript,
+                    moonraker_api::MoonrakerParam::GcodeScript {
+                        script: macro_value.to_string(),
+                    },
+                ))?;
+
+                serial_tx.send(construct_change_page(1))?;
+            }
         }
         Button::MacrosButton2 => {
-            println!("Macros Button 2");
+            let macro_value = screen_state.macros.get(screen_state.macros_scroll + 1);
+
+            if let Some(macro_value) = macro_value {
+                moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                    moonraker_api::MoonrakerMethod::GcodeScript,
+                    moonraker_api::MoonrakerParam::GcodeScript {
+                        script: macro_value.to_string(),
+                    },
+                ))?;
+
+                serial_tx.send(construct_change_page(1))?;
+            }
         }
         Button::MacrosButton3 => {
-            println!("Macros Button 3");
+            let macro_value = screen_state.macros.get(screen_state.macros_scroll + 2);
+
+            if let Some(macro_value) = macro_value {
+                moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                    moonraker_api::MoonrakerMethod::GcodeScript,
+                    moonraker_api::MoonrakerParam::GcodeScript {
+                        script: macro_value.to_string(),
+                    },
+                ))?;
+
+                serial_tx.send(construct_change_page(1))?;
+            }
         }
         Button::MacrosButton4 => {
-            println!("Macros Button 4");
+            let macro_value = screen_state.macros.get(screen_state.macros_scroll + 3);
+
+            if let Some(macro_value) = macro_value {
+                moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
+                    moonraker_api::MoonrakerMethod::GcodeScript,
+                    moonraker_api::MoonrakerParam::GcodeScript {
+                        script: macro_value.to_string(),
+                    },
+                ))?;
+
+                serial_tx.send(construct_change_page(1))?;
+            }
         }
         Button::Macros => {
-            serial_tx.lock().await.send(construct_change_page(6))?;
+            serial_tx.send(construct_change_page(6))?;
         }
         Button::Undefined(id) => {
             println!("Undefined button pressed with ID: {}", id);

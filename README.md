@@ -27,10 +27,11 @@ so your motherboard doesn't need to have display connector.
 - Pause/Resume/Stop print buttons
 - Pre-heat screen (for now hardcoded - PLA 200/45)
 - Basic toolhead movement
+- Macros list
 
 ## Todo (near future)
 - [x] Pause/Resume/Stop buttons in printing progress
 - [x] Pre-heat screen
 - [x] Toolhead movement
-- [ ] Macros list (and ability to run them)
+- [x] Macros list (and ability to run them)
 - [ ] Settings menu

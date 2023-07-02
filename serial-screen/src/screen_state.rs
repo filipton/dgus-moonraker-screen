@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use chrono::Local;
 use tokio::{
-    sync::{mpsc::UnboundedSender, Mutex, RwLock},
+    sync::{mpsc::UnboundedSender, Mutex, MutexGuard, RwLock},
     task::JoinHandle,
 };
 
@@ -23,6 +23,7 @@ pub struct ScreenState {
     pub homed_axes: HomedAxis,
 
     pub macros: Vec<String>,
+    pub macros_scroll: usize,
 
     pub time: String,           // 0x2000/5 HH:MM
     pub estimated_time: String, // 0x2005/10 ETA: HH:MM
@@ -44,7 +45,9 @@ impl ScreenState {
             current_page: 0,
             printer_state: PrinterState::Standby,
             homed_axes: HomedAxis::None,
+
             macros: Vec::new(),
+            macros_scroll: 0,
 
             time: "00:00".to_string(),
             estimated_time: " ".repeat(10),
@@ -66,7 +69,9 @@ impl ScreenState {
             current_page: 0,
             printer_state: PrinterState::Paused,
             homed_axes: HomedAxis::XYZ,
+
             macros: vec!["".into()],
+            macros_scroll: 0,
 
             time: String::new(),
             estimated_time: String::new(),
@@ -161,6 +166,13 @@ impl ScreenState {
             old.printer_state = self.printer_state;
         }
 
+        if self.macros != old.macros || self.macros_scroll != old.macros_scroll {
+            self.update_macros_list(&serial_tx).await?;
+
+            old.macros = self.macros.clone();
+            old.macros_scroll = self.macros_scroll;
+        }
+
         Ok(())
     }
 
@@ -176,6 +188,33 @@ impl ScreenState {
             let eta_minutes = (eta - eta_hours * 3600) / 60;
             format!("ETA: {:0>2}:{:0>2}", eta_hours, eta_minutes)
         }
+    }
+
+    pub async fn update_macros_list(
+        &self,
+        serial_tx: &MutexGuard<'_, UnboundedSender<Vec<u8>>>,
+    ) -> Result<()> {
+        let shifted_macros = self
+            .macros
+            .iter()
+            .skip(self.macros_scroll)
+            .take(4)
+            .map(|x| x.as_str())
+            .collect::<Vec<&str>>();
+
+        let mut idx = 0;
+        for addr in vec![0x3000, 0x3051, 0x3102, 0x3153] {
+            let line_value = shifted_macros.get(idx).unwrap_or(&"");
+            let mut line_value = format!("{: <50}", line_value);
+            if line_value.len() > 50 {
+                line_value.truncate(50);
+            }
+
+            let _ = serial_tx.send(construct_text(addr, &line_value));
+            idx += 1;
+        }
+
+        Ok(())
     }
 }
 

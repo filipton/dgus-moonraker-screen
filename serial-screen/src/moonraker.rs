@@ -190,7 +190,6 @@ pub async fn recieve_moonraker_updates(
                         .map(|o| o.replace("gcode_macro ", ""))
                         .collect::<Vec<_>>();
 
-                    println!("Macros: {:?}", macros);
                     screen_state.macros = macros;
                 }
                 _ => {} // Ignore other methods

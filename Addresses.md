@@ -40,6 +40,7 @@
  - 0x2030/1 - print paused (0 - unpaused, 1 - paused)
 
 # List data vars (for example in macros) [ADDR/LEN]:
+YES I KNOW THESE OFFSET ARE WILD BUT IT IS WHAT IT IS 
  - 0x3000/50 - macros list line 1
  - 0x3051/50 - macros list line 2
  - 0x3102/50 - macros list line 3
