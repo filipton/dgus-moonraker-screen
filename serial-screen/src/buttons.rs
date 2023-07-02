@@ -13,8 +13,12 @@ use crate::{
 pub enum Button {
     Undefined(u16),
 
-    PrinterMovement,
+    PrintingProgress,
     EmergencyStop,
+    Preheat,
+    PrinterMovement,
+    Settings,
+    BackToMain,
     Pause,
     Stop,
     EmergencyStopRelease,
@@ -25,8 +29,12 @@ pub enum Button {
 impl Button {
     pub fn from_id(id: u16) -> Self {
         match id {
+            1 => Button::PrintingProgress,
             2 => Button::EmergencyStop,
+            3 => Button::Preheat,
             4 => Button::PrinterMovement,
+            5 => Button::Settings,
+            6 => Button::BackToMain,
             7 => Button::Pause,
             8 => Button::Stop,
             9 => Button::EmergencyStopRelease,
@@ -47,6 +55,19 @@ pub async fn parse_button_click(
     let screen_state = screen_state.read().await;
 
     match button {
+        Button::PrintingProgress => {
+            serial_tx.lock().await.send(construct_change_page(2))?;
+        }
+        Button::EmergencyStop => {
+            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_with_method_and_id(
+                moonraker_api::MoonrakerMethod::EmergencyStop,
+            ))?;
+
+            serial_tx.lock().await.send(construct_change_page(3))?;
+        }
+        Button::Preheat => {
+            serial_tx.lock().await.send(construct_change_page(4))?;
+        }
         Button::PrinterMovement => {
             if screen_state.printer_state != PrinterState::Printing
                 && screen_state.printer_state != PrinterState::Paused
@@ -55,10 +76,11 @@ pub async fn parse_button_click(
                 return Ok(());
             }
         }
-        Button::EmergencyStop => {
-            moonraker_tx.send(moonraker_api::MoonrakerMsg::new_with_method_and_id(
-                moonraker_api::MoonrakerMethod::EmergencyStop,
-            ))?;
+        Button::Settings => {
+            //serial_tx.lock().await.send(construct_change_page(6))?;
+        }
+        Button::BackToMain => {
+            serial_tx.lock().await.send(construct_change_page(1))?;
         }
         Button::Pause => {
             if screen_state.printer_state == PrinterState::Paused {
@@ -85,12 +107,10 @@ pub async fn parse_button_click(
             if screen_state.printer_state == PrinterState::Printing
                 || screen_state.printer_state == PrinterState::Paused
             {
-                // TODO: Maybe popup?
-
-                serial_tx.lock().await.send(construct_change_page(1))?;
                 return Ok(());
             }
 
+            serial_tx.lock().await.send(construct_change_page(1))?;
             moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
                 moonraker_api::MoonrakerMethod::GcodeScript,
                 moonraker_api::MoonrakerParam::GcodeScript {
@@ -109,12 +129,10 @@ pub async fn parse_button_click(
             if screen_state.printer_state == PrinterState::Printing
                 || screen_state.printer_state == PrinterState::Paused
             {
-                // TODO: Maybe popup?
-
-                serial_tx.lock().await.send(construct_change_page(1))?;
                 return Ok(());
             }
 
+            serial_tx.lock().await.send(construct_change_page(1))?;
             moonraker_tx.send(moonraker_api::MoonrakerMsg::new_param_id(
                 moonraker_api::MoonrakerMethod::GcodeScript,
                 moonraker_api::MoonrakerParam::GcodeScript {
