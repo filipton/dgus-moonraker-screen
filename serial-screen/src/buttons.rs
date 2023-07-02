@@ -24,6 +24,14 @@ pub enum Button {
     EmergencyStopRelease,
     PreheatPla,
     PreheatCooldown,
+    PreheatCustom,
+    MacrosUP,
+    MacrosDOWN,
+    MacrosButton1,
+    MacrosButton2,
+    MacrosButton3,
+    MacrosButton4,
+    Macros,
 }
 
 impl Button {
@@ -40,6 +48,14 @@ impl Button {
             9 => Button::EmergencyStopRelease,
             10 => Button::PreheatPla,
             11 => Button::PreheatCooldown,
+            12 => Button::PreheatCustom,
+            13 => Button::MacrosUP,
+            14 => Button::MacrosDOWN,
+            15 => Button::MacrosButton1,
+            16 => Button::MacrosButton2,
+            17 => Button::MacrosButton3,
+            18 => Button::MacrosButton4,
+            19 => Button::Macros,
             _ => Button::Undefined(id),
         }
     }
@@ -77,7 +93,7 @@ pub async fn parse_button_click(
             }
         }
         Button::Settings => {
-            //serial_tx.lock().await.send(construct_change_page(6))?;
+            //serial_tx.lock().await.send(construct_change_page(7))?;
         }
         Button::BackToMain => {
             serial_tx.lock().await.send(construct_change_page(1))?;
@@ -139,6 +155,28 @@ pub async fn parse_button_click(
                     script: "TURN_OFF_HEATERS".to_string(),
                 },
             ))?;
+        }
+        Button::PreheatCustom => {}
+        Button::MacrosUP => {
+            println!("Macros UP");
+        }
+        Button::MacrosDOWN => {
+            println!("Macros DOWN");
+        }
+        Button::MacrosButton1 => {
+            println!("Macros Button 1");
+        }
+        Button::MacrosButton2 => {
+            println!("Macros Button 2");
+        }
+        Button::MacrosButton3 => {
+            println!("Macros Button 3");
+        }
+        Button::MacrosButton4 => {
+            println!("Macros Button 4");
+        }
+        Button::Macros => {
+            serial_tx.lock().await.send(construct_change_page(6))?;
         }
         Button::Undefined(id) => {
             println!("Undefined button pressed with ID: {}", id);

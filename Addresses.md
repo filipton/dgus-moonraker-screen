@@ -11,6 +11,13 @@
  - 10 - preheat PLA (200/45)
  - 11 - cooldown
  - 12 - reserved for custom temp
+ - 13 - macros list UP
+ - 14 - macros list down
+ - 15 - macros button 1
+ - 16 - macros button 2
+ - 17 - macros button 3
+ - 18 - macros button 4
+ - 19 - Macros (nav to 006)
 
 # Toolhead Movement Buttons (VP 0x1001)
  - 1 - y+
@@ -21,13 +28,19 @@
  - 6 - z-
  - 7 - home all
 
-# Data Varibles (text etc.) [ADDR/LEN]:
- - 0x2000/5 - (0x2004) - “HH:MM” - header
- - 0x2005/10 - (0x2014) - “ETA: HH:MM” - header
- - 0x2015/20 - (0x2024) - “Model name” - 002
+# Data Variables (text etc.) [ADDR/LEN]:
+ - 0x2000/5 - "HH:MM" - header
+ - 0x2005/10 - "ETA: HH:MM" - header
+ - 0x2015/20 - "Model name" - 002
  - 0x2025/1 - current nozzle temp - 002
  - 0x2026/1 - target nozzle temp - 002
  - 0x2027/1 - current bed temp - 002
  - 0x2028/1 - target bed temp - 002
  - 0x2029/1 - printing progress bar (0-100)
  - 0x2030/1 - print paused (0 - unpaused, 1 - paused)
+
+# List data vars (for example in macros) [ADDR/LEN]:
+ - 0x3000/50 - macros list line 1
+ - 0x3051/50 - macros list line 2
+ - 0x3102/50 - macros list line 3
+ - 0x3153/50 - macros list line 4
