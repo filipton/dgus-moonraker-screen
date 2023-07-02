@@ -1,5 +1,5 @@
 use anyhow::Result;
-use buttons::{parse_button_click, Button, MovementButton, parse_movement_button};
+use buttons::{parse_button_click, parse_movement_button, Button, MovementButton};
 use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
@@ -33,6 +33,13 @@ async fn main() -> Result<()> {
     let moonraker_tx = Arc::new(Mutex::new(moonraker.0));
     let moonraker_rx = Arc::new(Mutex::new(moonraker.1));
     subscribe_websocket_events(moonraker_tx.clone()).await?;
+
+    _ = moonraker_tx
+        .lock()
+        .await
+        .send(moonraker_api::MoonrakerMsg::new_with_method_and_id(
+            moonraker_api::MoonrakerMethod::PrinterObjectsList,
+        ));
 
     loop {
         let res = connect_to_serial(
@@ -103,7 +110,8 @@ async fn connect_to_serial(
                         let btn = u16::from_be_bytes([buffer[7], buffer[8]]);
                         let btn = Button::from_id(btn);
 
-                        let res = parse_button_click(btn, &moonraker_tx, &screen_state, &serial_tx).await;
+                        let res =
+                            parse_button_click(btn, &moonraker_tx, &screen_state, &serial_tx).await;
                         if let Err(e) = res {
                             println!("Error while parsing button click: {}", e);
                         }
@@ -112,7 +120,9 @@ async fn connect_to_serial(
                         let btn = u16::from_be_bytes([buffer[7], buffer[8]]);
                         let btn = MovementButton::from_id(btn);
 
-                        let res = parse_movement_button(btn, &moonraker_tx, &screen_state, &serial_tx).await;
+                        let res =
+                            parse_movement_button(btn, &moonraker_tx, &screen_state, &serial_tx)
+                                .await;
                         if let Err(e) = res {
                             println!("Error while parsing button click: {}", e);
                         }

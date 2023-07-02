@@ -72,6 +72,17 @@ async fn ws_connection(
 
                 let msg = MoonrakerMsg::from_json(json);
                 if let Ok(msg) = msg {
+                    if let MoonrakerMsg::MsgMethodParamVec {
+                        jsonrpc: _,
+                        method,
+                        params: _,
+                    } = msg.clone()
+                    {
+                        if method == crate::MoonrakerMethod::NotifyProcStatUpdate {
+                            continue;
+                        }
+                    }
+
                     tx.send(msg).unwrap();
                 } else {
                     //println!("DBG: {}", msg.err().unwrap());

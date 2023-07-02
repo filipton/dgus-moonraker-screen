@@ -1,7 +1,7 @@
 use crate::{
     screen_state::ScreenState,
     serial_utils::construct_change_page,
-    structs::{FileMetadataRoot, PrinterStateRoot},
+    structs::{FileMetadataRoot, PrinterObjectsRoot, PrinterStateRoot},
     utils::{self, subscribe_websocket_events},
     MOONRAKER_API_URL,
 };
@@ -143,43 +143,58 @@ pub async fn recieve_moonraker_updates(
             id,
         } = msg.clone()
         {
-            if id
-                != moonraker_api::get_method_id(
-                    &moonraker_api::MoonrakerMethod::PrinterObjectsSubscribe,
-                )
-            {
+            let method = moonraker_api::methods::get_method_from_id(id);
+            if let Err(_) = method {
                 continue;
             }
 
-            let result: PrinterStateRoot = serde_json::from_value(result)
-                .map_err(|e| anyhow::anyhow!("SERDE Error: {}", e))
-                .unwrap();
+            match method? {
+                MoonrakerMethod::PrinterObjectsSubscribe => {
+                    let result: PrinterStateRoot = serde_json::from_value(result)
+                        .map_err(|e| anyhow::anyhow!("SERDE Error: {}", e))?;
 
-            screen_state.printing_progress =
-                (result.status.display_status.progress * 100.0).round() as i16;
-            screen_state.printer_state = result.status.print_stats.state.as_str().into();
-            screen_state.homed_axes = result.status.toolhead.homed_axes.as_str().into();
+                    screen_state.printing_progress =
+                        (result.status.display_status.progress * 100.0).round() as i16;
+                    screen_state.printer_state = result.status.print_stats.state.as_str().into();
+                    screen_state.homed_axes = result.status.toolhead.homed_axes.as_str().into();
 
-            screen_state.nozzle_temp = result.status.extruder.temperature.round() as i16;
-            screen_state.target_nozzle_temp = result.status.extruder.target.round() as i16;
+                    screen_state.nozzle_temp = result.status.extruder.temperature.round() as i16;
+                    screen_state.target_nozzle_temp = result.status.extruder.target.round() as i16;
 
-            screen_state.bed_temp = result.status.heater_bed.temperature.round() as i16;
-            screen_state.target_bed_temp = result.status.heater_bed.target.round() as i16;
+                    screen_state.bed_temp = result.status.heater_bed.temperature.round() as i16;
+                    screen_state.target_bed_temp = result.status.heater_bed.target.round() as i16;
 
-            let model_name = result
-                .status
-                .print_stats
-                .filename
-                .split('.')
-                .next()
-                .unwrap_or("");
-            screen_state.model_name = utils::center_pad(model_name, " ", 20);
+                    let model_name = result
+                        .status
+                        .print_stats
+                        .filename
+                        .split('.')
+                        .next()
+                        .unwrap_or("");
+                    screen_state.model_name = utils::center_pad(model_name, " ", 20);
 
-            screen_state.file_estimated_time =
-                get_file_estimated_time(client, &result.status.print_stats.filename)
-                    .await
-                    .unwrap_or(Some(-1))
-                    .unwrap_or(-1);
+                    screen_state.file_estimated_time =
+                        get_file_estimated_time(client, &result.status.print_stats.filename)
+                            .await
+                            .unwrap_or(Some(-1))
+                            .unwrap_or(-1);
+                }
+                MoonrakerMethod::PrinterObjectsList => {
+                    let result: PrinterObjectsRoot = serde_json::from_value(result)
+                        .map_err(|e| anyhow::anyhow!("SERDE Error: {}", e))?;
+
+                    let macros = result
+                        .objects
+                        .into_iter()
+                        .filter(|o| o.starts_with("gcode_macro"))
+                        .map(|o| o.replace("gcode_macro ", ""))
+                        .collect::<Vec<_>>();
+
+                    println!("Macros: {:?}", macros);
+                    screen_state.macros = macros;
+                }
+                _ => {} // Ignore other methods
+            }
         }
 
         if let MoonrakerMsg::MsgMethod { jsonrpc: _, method } = msg {
@@ -192,6 +207,13 @@ pub async fn recieve_moonraker_updates(
                     .unwrap();
 
                 _ = subscribe_websocket_events(moonraker_tx.clone()).await;
+
+                _ = moonraker_tx
+                    .lock()
+                    .await
+                    .send(MoonrakerMsg::new_with_method_and_id(
+                        MoonrakerMethod::PrinterObjectsList,
+                    ));
             }
         }
     }

@@ -22,8 +22,10 @@ pub struct ScreenState {
     pub printer_state: PrinterState,
     pub homed_axes: HomedAxis,
 
-    pub time: String,       // 0x2000/5 HH:MM
-    estimated_time: String, // 0x2005/10 ETA: HH:MM
+    pub macros: Vec<String>,
+
+    pub time: String,           // 0x2000/5 HH:MM
+    pub estimated_time: String, // 0x2005/10 ETA: HH:MM
     pub file_estimated_time: i32,
 
     pub model_name: String, // 0x2015/20 Model Name (centered)
@@ -42,6 +44,7 @@ impl ScreenState {
             current_page: 0,
             printer_state: PrinterState::Standby,
             homed_axes: HomedAxis::None,
+            macros: Vec::new(),
 
             time: "00:00".to_string(),
             estimated_time: " ".repeat(10),
@@ -63,6 +66,7 @@ impl ScreenState {
             current_page: 0,
             printer_state: PrinterState::Paused,
             homed_axes: HomedAxis::XYZ,
+            macros: vec!["".into()],
 
             time: String::new(),
             estimated_time: String::new(),
