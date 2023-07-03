@@ -3,7 +3,6 @@ use crate::{
     serial_utils::construct_change_page,
     structs::{FileMetadataRoot, PrinterObjectsRoot, PrinterStateRoot},
     utils::{self, subscribe_websocket_events},
-    MOONRAKER_API_URL,
 };
 use anyhow::Result;
 use moonraker_api::{MoonrakerMethod, MoonrakerMsg};
@@ -67,6 +66,7 @@ pub async fn recieve_moonraker_updates(
     moonraker_rx: &MoonrakerRx,
     serial_tx: &Arc<Mutex<UnboundedSender<Vec<u8>>>>,
     client: &reqwest::Client,
+    moonraker_api_url: String,
 ) -> Result<()> {
     while let Ok(msg) = moonraker_rx.lock().await.try_recv() {
         if let MoonrakerMsg::MsgMethodParam {
@@ -117,11 +117,14 @@ pub async fn recieve_moonraker_updates(
 
                         screen_state.model_name = utils::center_pad(model_name, " ", 20);
 
-                        screen_state.file_estimated_time =
-                            get_file_estimated_time(client, filename.as_str().unwrap_or(""))
-                                .await
-                                .unwrap_or(Some(-1))
-                                .unwrap_or(-1);
+                        screen_state.file_estimated_time = get_file_estimated_time(
+                            client,
+                            filename.as_str().unwrap_or(""),
+                            &moonraker_api_url,
+                        )
+                        .await
+                        .unwrap_or(Some(-1))
+                        .unwrap_or(-1);
                     }
 
                     if let Some(state) = print_stats.get("state") {
@@ -173,11 +176,14 @@ pub async fn recieve_moonraker_updates(
                         .unwrap_or("");
                     screen_state.model_name = utils::center_pad(model_name, " ", 20);
 
-                    screen_state.file_estimated_time =
-                        get_file_estimated_time(client, &result.status.print_stats.filename)
-                            .await
-                            .unwrap_or(Some(-1))
-                            .unwrap_or(-1);
+                    screen_state.file_estimated_time = get_file_estimated_time(
+                        client,
+                        &result.status.print_stats.filename,
+                        &moonraker_api_url,
+                    )
+                    .await
+                    .unwrap_or(Some(-1))
+                    .unwrap_or(-1);
                 }
                 MoonrakerMethod::PrinterObjectsList => {
                     let result: PrinterObjectsRoot = serde_json::from_value(result)
@@ -220,11 +226,15 @@ pub async fn recieve_moonraker_updates(
     Ok(())
 }
 
-async fn get_file_estimated_time(client: &reqwest::Client, filename: &str) -> Result<Option<i32>> {
+async fn get_file_estimated_time(
+    client: &reqwest::Client,
+    filename: &str,
+    moonraker_api_url: &str,
+) -> Result<Option<i32>> {
     let file_metadata = client
         .get(format!(
             "http://{}/server/files/metadata?filename={}",
-            MOONRAKER_API_URL, filename
+            moonraker_api_url, filename
         ))
         .send()
         .await;

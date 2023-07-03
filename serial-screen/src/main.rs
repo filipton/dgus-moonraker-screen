@@ -22,14 +22,15 @@ const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
 const TIMEOUT_THRESHOLD: u128 = 2000;
 
-// TODO: make this configurable (or just hardcode it as localhost)
-pub const MOONRAKER_API_URL: &str = "192.168.1.18:7125";
-
 #[tokio::main]
 async fn main() -> Result<()> {
+    let moonraker_api_url = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "localhost:7125".to_string());
+
     let screen_state = Arc::new(RwLock::new(ScreenState::new()));
 
-    let moonraker = moonraker_api::connect(MOONRAKER_API_URL).await?;
+    let moonraker = moonraker_api::connect(&moonraker_api_url).await?;
     let moonraker_tx = Arc::new(Mutex::new(moonraker.0));
     let moonraker_rx = Arc::new(Mutex::new(moonraker.1));
     subscribe_websocket_events(moonraker_tx.clone()).await?;
@@ -46,6 +47,7 @@ async fn main() -> Result<()> {
             screen_state.clone(),
             moonraker_tx.clone(),
             moonraker_rx.clone(),
+            moonraker_api_url.clone(),
         )
         .await;
         if res.is_err() {
@@ -58,6 +60,7 @@ async fn connect_to_serial(
     screen_state: Arc<RwLock<ScreenState>>,
     moonraker_tx: MoonrakerTx,
     moonraker_rx: MoonrakerRx,
+    moonraker_api_url: String,
 ) -> Result<()> {
     let serial = rppal::uart::Uart::new(115200, rppal::uart::Parity::None, 8, 1);
     if let Err(e) = serial {
@@ -76,6 +79,7 @@ async fn connect_to_serial(
         moonraker_rx.clone(),
         screen_state.clone(),
         serial_tx.clone(),
+        moonraker_api_url,
     )
     .await?;
 

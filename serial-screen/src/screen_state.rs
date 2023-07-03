@@ -223,6 +223,7 @@ pub async fn spawn_update_task(
     moonraker_rx: MoonrakerRx,
     screen_state: Arc<RwLock<ScreenState>>,
     serial_tx: Arc<Mutex<UnboundedSender<Vec<u8>>>>,
+    moonraker_api_url: String,
 ) -> Result<JoinHandle<()>> {
     let task = tokio::spawn(async move {
         let client = reqwest::Client::new();
@@ -240,6 +241,7 @@ pub async fn spawn_update_task(
                     &moonraker_rx,
                     &serial_tx,
                     &client,
+                    moonraker_api_url.clone(),
                 )
                 .await;
                 if let Err(e) = moonraker_update_res {
