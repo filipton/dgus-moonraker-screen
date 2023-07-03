@@ -4,6 +4,7 @@ use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
 use serial_utils::construct_change_page;
+use updater::check_for_updates;
 use std::sync::Arc;
 use tokio::{
     sync::{Mutex, RwLock},
@@ -16,6 +17,7 @@ mod moonraker;
 mod screen_state;
 mod serial_utils;
 mod structs;
+mod updater;
 mod utils;
 
 const RETRY_TIMEOUT: u64 = 5000;
@@ -27,6 +29,8 @@ async fn main() -> Result<()> {
     let moonraker_api_url = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "localhost:7125".to_string());
+
+    check_for_updates().await;
 
     let screen_state = Arc::new(RwLock::new(ScreenState::new()));
 
