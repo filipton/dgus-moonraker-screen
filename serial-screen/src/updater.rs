@@ -6,7 +6,7 @@ use serde::Deserialize;
 pub const PLATFORM: &str = "x86_64";
 
 #[cfg(any(target_arch = "arm"))]
-pub const PLATFORM: &str = "arm";
+pub const PLATFORM: &str = "arm-gnueabihf";
 
 #[cfg(any(target_arch = "aarch64"))]
 pub const PLATFORM: &str = "aarch64";
@@ -61,8 +61,10 @@ pub async fn check_for_updates() {
 
                 if let Some(current_arch_release) = current_arch_release {
                     if current_arch_release.size != current_file_size {
-                        _ = update(&client, headers, &current_arch_release.browser_download_url)
+                        let res = update(&client, headers, &current_arch_release.browser_download_url)
                             .await;
+
+                        println!("Failed to update: {:?}", res);
                     }
                 }
             }
@@ -85,9 +87,10 @@ async fn update(client: &reqwest::Client, headers: HeaderMap, url: &str) -> Resu
 
     println!("Updating to latest version...");
 
-    tokio::fs::write("/opt/serial-screen/serial-screen", bytes).await?;
-    std::process::Command::new("systemctl")
-        .args(&["restart", "serial-screen"])
+    tokio::fs::write("/opt/serial-screen/serial-screen-update", bytes).await?;
+    std::process::Command::new("bash")
+        .arg("-c")
+        .arg("'(sleep 1 ; mv /opt/serial-screen/serial-screen-update /opt/serial-screen/serial-screen ; chmod +x /opt/serial-screen/serial-screen) &'")
         .spawn()?;
 
     std::process::exit(0);

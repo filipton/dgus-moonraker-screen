@@ -3,6 +3,7 @@ linker = "arm-linux-gnueabihf-gcc"
 
 [target.arm-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-gcc"
+#linker = "arm-linux-gnueabihf-g++"
 
 [target.arm-unknown-linux-gnueabi]
 linker = "arm-linux-gnueabi-gcc"
