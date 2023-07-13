@@ -2,6 +2,8 @@ use anyhow::Result;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
 
+use crate::version::VERSION;
+
 #[cfg(any(target_arch = "x86_64"))]
 pub const PLATFORM: &str = "x86_64";
 
@@ -19,7 +21,6 @@ struct GithubReleasesRoot {
 #[derive(Debug, Clone, Deserialize)]
 struct GithubReleaseAsset {
     name: String,
-    size: u64,
     browser_download_url: String,
 }
 
@@ -34,10 +35,6 @@ pub async fn check_for_updates() {
     }
 
     let client = reqwest::Client::new();
-    let current_file_size = tokio::fs::metadata("/opt/serial-screen/serial-screen")
-        .await
-        .unwrap()
-        .len();
 
     let headers = reqwest::header::HeaderMap::from_iter(vec![(
         reqwest::header::USER_AGENT,
@@ -60,7 +57,7 @@ pub async fn check_for_updates() {
                     .find(|asset| asset.name.contains(PLATFORM));
 
                 if let Some(current_arch_release) = current_arch_release {
-                    if current_arch_release.size != current_file_size {
+                    if current_arch_release.name != VERSION {
                         let res = update(&client, headers, &current_arch_release.browser_download_url)
                             .await;
 

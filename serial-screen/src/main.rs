@@ -4,12 +4,12 @@ use moonraker::{MoonrakerRx, MoonrakerTx};
 use rppal::uart::Uart;
 use screen_state::ScreenState;
 use serial_utils::construct_change_page;
-use updater::check_for_updates;
 use std::sync::Arc;
 use tokio::{
     sync::{Mutex, RwLock},
     time::Instant,
 };
+use updater::check_for_updates;
 use utils::subscribe_websocket_events;
 
 mod buttons;
@@ -19,6 +19,7 @@ mod serial_utils;
 mod structs;
 mod updater;
 mod utils;
+mod version;
 
 const RETRY_TIMEOUT: u64 = 5000;
 const BOOT_TIMEOUT: u128 = 1000;
